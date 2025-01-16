@@ -1,0 +1,100 @@
+# Flows
+
+In many hydrological simulators, the state variable is a physical quantity such
+as storage, level, head, or pressure. Fluxes or flows of mass or momentum are
+formulated as depending on these state variables. The simulator then solves for
+the state variables which can be directly written to datasets as output.
+However, simulated flows are relevant too, often the primary output of
+interest.
+These are directly computed by explicit single-step methods, but not by
+multi-step or implicit methods. In that case, most simulators reconstruct flows
+from the solved state variable.
+
+When a simulator uses a single single-step integration method, this is
+straightforward. For explicit Euler, we would evaluate:
+
+$$
+q(S^{t \rightarrow t + 1}_1) = f_1(S^t_1)
+$$
+
+Similarly for implicit Euler, we would evaluate at $S^{t+1}$ instead:
+
+$$
+q(S^{t \rightarrow t + 1}_1) = f_1(S^{t+1}_1)
+$$
+
+There are two solutions to flow reconstruction:
+
+1. Fix the solver algorithm to a single method and tailor the flow reconstruction 
+   for this method.
+2. Rely on "dense" solver output, which can be used to smoothly interpolate the
+   state from $t$ to $t^{n+1}$. 
+
+Most simulators choose the first approach and support only one or a few
+formulations. Flexibility in solver algorithms is a powerful feature: for
+example, even within a single numerical code, some scenarios may run
+drastically faster using one solver than another. Dense output is costly in
+terms of memory and computational efficiency. Worse, the interpolation provides
+a (smooth) $S(t)$ function, but not flows: they still need integration,
+effectively stacking a second integration problem on top of the first.
+(Piecewise) analytical integration may be possible for simple flow terms given
+a spline interpolant, but issues persist: mass may not be conserved exactly
+with relation to the solved storage.
+
+$$
+\sum^{i=n}_{i=0} f_i(S) + \Delta S = 0
+$$
+
+$\Delta S_{n \rightarrow n+1}$ is the result of a solve by some solver
+algorithm. During computation of $S_{n+1}$, the solver uses a method-specific
+"internal" flow formulations, for example multiple local linearizations. As a
+result, our reconstructed flows do not match the solver-internal terms for
+$f_i(S)$, are inconsistent with $\Delta S$ and do not conserve mass when
+considered together. This is troublesome because resulting model outputs are
+difficult to check and interpret, and it is especially troublesome when flows
+are used by another program that require mass conservation, e.g. a solute
+transport simulator that uses flows and storage changes as input.
+ 
+## Solving for flow
+
+Solving for flow instead of storage solves this problem, and succesfully makes
+a formulation sufficiently general to be used with a variety of solver
+algorithms. Rather than reconstructing flows from storage, we reconstruct
+storage from flow. Whereas flow terms are commonly non-linear with respect
+to storage, storage change is a simple accumulation of flows,
+
+$$
+\ \Delta S = \sum^{i=n}_{i=0} f_i(S).
+$$
+
+This approach has several disadvantages:
+
+* Unlike storages, levels, or pressures, flows are not clearly bounded to a
+  physically plausible interval. This may result in ever-accumulating flow
+  states; this can be addressed by periodically resetting integrated flows to
+  0. Arguably, the formulation is less intuitive.
+* Physical constraints such as positive storage require the intermediate
+  computation of at every evaluation of $F$.
+* The number of unknowns may increase as well the linearized system of
+  equations, though the number of equations remains exactly the same. A cascade
+  of $N$ directed reservoirs requires $N$ unknowns in either storage or flow
+  formulation. However, in the flow formulation, each storage dependent
+  boundary condition requires another unknown; evaporation and runoff imply
+  $3N$ unknowns.
+* When solving directly for flows, the solver may require more computational
+  effort through increased time steps or iterations to achieve convergence.
+  This is because the flow-based formulation often involves more explicit
+  representation of individual flow dynamics. In contrast, a storage-based
+  formulation might only implicitly capture these dynamics
+  through linearized coefficients. (This can also be considered an advantage of
+  the flow-based formulation!) This can be addressed by choosing different
+  convergence criteria.
+
+These problems are present even when flows are inertial and incorporated in the
+system of equations more explicitly. For example, the 1D Saint-Venant equations
+incorporate both conservation of mass and conservation of linear momentum. Yet
+if they are formulated in terms of water level and velocity, flows cannot be
+trivially reconstructed either since integration requires intermediate values
+of cross-sectional areas (i.e. water levels) as well as flow velocities.
+On the other hand, time-averaged velocities can be reconstructed,
+

@@ -1,0 +1,94 @@
+---
+title: "Simple reservoirs"
+---
+
+Our first illustration will demonstrate the formulations with a cascade of five
+buckets. Each bucket's water balance can be expressed as:
+
+$$
+\frac{dS}{dt} = P_i - E_i(S) + Q_{i-1} - Q_{i}
+$$
+
+Where $P$ is precipitation, $E$ is evaporation, $Q_{i-1}$ is incoming flow
+from an upstream bucket, and $Q_i$ is outgoing flow downstream.
+
+$P$ is strictly positive and defined as:
+
+$$
+P = \text{area} * R_P
+$$
+
+where $\text{area}$ is a constant for each bucket.
+
+Evaporation is constant, until a bucket is depleted,
+
+$$
+E(S) = 
+\begin{cases}
+    R_E * \text{area}, & \text{if } S > 0 \\
+    0, & \text{if } S = 0
+\end{cases}
+$$
+
+Flow between buckets is given by a (rating curve) power law relationship,
+
+$$ 
+Q_d = a S^b
+$$
+
+An explicit implementation requires no more than some logic for updating the
+precipitation and evaporation forcing, one loop for the buckets, and one loop
+for the time steps.
+
+To write an implicit Newton-Rhapson formulation we define
+
+$$
+F_i = P_i - E_i(S) + Q_{i} - Q_{i+1} - \frac{\Delta S}{\Delta t}.
+$$
+
+For three buckets, the storages between iterations are given by  
+
+$$
+\mathbf{S}_n = \begin{bmatrix} S_1 \\ S_2 \\ S_3 \end{bmatrix}_n^{t+1}, 
+\quad 
+\mathbf{S}_{n+1} = \begin{bmatrix} S_1 \\ S_2 \\ S_3 \end{bmatrix}_{n+1}^{t+1}.
+$$
+
+The Jacobian is given by
+
+$$
+\mathbf{J}(\mathbf{S}^{t+1}_n) = 
+\begin{bmatrix}
+\frac{\partial F_1}{\partial S_1} & \frac{\partial F_1}{\partial S_2} & \frac{\partial F_1}{\partial S_3} \\
+\frac{\partial F_2}{\partial S_1} & \frac{\partial F_2}{\partial S_2} & \frac{\partial F_2}{\partial S_3} \\
+\frac{\partial F_3}{\partial S_1} & \frac{\partial F_3}{\partial S_2} & \frac{\partial F_3}{\partial S_3}
+\end{bmatrix}.
+$$
+
+For a given bucket, the derivative $\frac{\partial F_1}{\partial S_1}$ is given by
+
+$$
+\frac{\partial F_i}{\partial S_i} = - ab_iS_i^{b_i-1} - \frac{1}{\Delta t}
+$$
+
+The inflow to a bucket depends only on the upstream bucket, hence
+
+$$
+\frac{\partial F_i}{\partial S_{i-1}} = ab_iS_i^{b_i-1},
+\quad
+\frac{\partial F_i}{\partial S_{i+1}} = 0.
+$$
+
+Resulting in the following Jacobian
+
+$$
+\mathbf{J} = 
+\begin{bmatrix}
+-ab_1S_1^{b_1-1} - \frac{1}{\Delta t} & 0 & 0 \\
+ab_1S_1^{b_1-1} & -ab_2S_2^{b_2-1} - \frac{1}{\Delta t} & 0 \\
+0 & ab_2S_2^{b_2-1} & -ab_3S_3^{b_3-1} - \frac{1}{\Delta t}
+\end{bmatrix}.
+$$
+
+$\frac{dS}{dP}=0$ as $P$ does not depend on $S$. $\frac{dS}{dE}=0$ too, as the
+function jumps at $S = 0$ (where its derivative is not defined).

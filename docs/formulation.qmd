@@ -1,0 +1,75 @@
+## Explicit formulation
+
+In the naive formulation, several or many ($N$) hydrological stores are
+connected, forming a system of $N$ coupled ODEs
+
+$$
+\frac{d\mathbf{S}^t}{dt} = g(\mathbf{S}^t)
+$$
+
+$g$ generally also includes a priori known boundary conditions and forcings for
+time $t$, for example,
+
+$$
+g = P - ET(S) + Q_{in}(S) + Q_{out}(S)
+$$
+
+$N$ is e.g. either directly the number of catchments or the number of cells as
+a result of a finite volume discretization. Many simulators now choose the
+explicit Euler scheme to discretize in time,
+
+$$
+\frac{S^t}{\Delta t} = g(\mathbf{S}^t).
+$$
+
+In hydrological terms: the average fluxes during time step $\Delta t$
+are approximated by the flux at the start of the time step,
+
+$$
+S^{t+1} = S^t + \Delta t g(S^t).
+$$
+
+Unfortunately, this scheme is only first order accurate and has poor stability
+with fixed time steps leading to results such as negative storages.
+
+## Implicit formulation
+
+Choosing to approximate flux by the (unknown) flux at the end of the time step leads to
+the implicit Euler scheme instead,
+
+$$
+S^{t+1} = S^t + \Delta t f(S^{t+1}).
+$$
+
+To find $S^{t+1}$, a system of equations needs to be solved. If $g$ is a linear
+function (such as confined groundwater flow), a single linear solve immediately
+provides $S^{t+1}$. Generally, however, $g$ is a non-linear function of
+$\mathbf{S}$. We can solve a non-linear system of equations using a
+Newton-Raphson scheme.
+
+For a single store $S$, a Newton-Raphson iteration is defined as:
+
+$$
+S^{t+1}_{n+1} = S^{t+1}_{n} - \frac{ g(S^{t+1}_n) }{ g'(S^{t+1}_n)}
+$$
+
+Iterations are repeated until the water balance is considered sufficiently
+closed.
+
+For multiple stores $\mathbf{S}$, ${g'(S^{t+1}_k)}$ becomes the Jacobian matrix $J$ instead,
+
+$$
+\mathbf{S}^{t+1}_{n+1} = \mathbf{S}^{t+1}_{n} - \mathbf{J}(\mathbf{S}^{t+1}_{n})^{-1} g(\mathbf{S}^{t+1}_{n}).
+$$
+
+We find $S^{t+1}$ by solving the linear system of equations
+
+$$
+\mathbf{J}(\mathbf{S}^{t+1}_{n})\Delta\mathbf{S}^{t+1}_n = -g(\mathbf{S}^{t+1}_{n}).
+$$
+
+for the unknown Newton-Raphson update
+
+$$
+\Delta\mathbf{S}^{t+1}_n = \mathbf{S}^{t+1}_{n+1} - \mathbf{S}^{t+1}_n.
+$$

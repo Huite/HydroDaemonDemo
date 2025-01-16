@@ -1,0 +1,85 @@
+---
+title: "Hydrology and Differential Equations"
+---
+
+# Background
+
+We believe Julia is exceptionally suitable, both as a prototyping language and
+as a high-performance implementation platform for numerically sound
+hydrological simulators. Julia is fast yet as readable as Python, has the most
+and fastest solvers with a unified API, and has unmatched support for automatic
+differentiation to provide derivatives.
+
+## Automatic differentiation
+
+The Jacobian in Newton-Raphson iteration for a system of equations originating
+from a finite volume discretization requires many derivatives. These
+derivatives may be formulated through:
+
+1. A closed-form expression obtained by manual or symbolic derivation.
+2. Finite differences.
+3. Automatic differentiation.
+   
+The first two methods are well known in hydrological modeling, but have
+disadvantages: a closed-form expression may be difficult to find or tedious to
+implement for each term; finite differences only require evaluating $f$, but are
+inexact and require an evaluation for each input. Automatic differentiation
+combines the strengths of both: it is exact (to machine precision), and
+requires no manual intervention. We will very briefly introduce it here.
+
+The essential concept of automatic differentiation is a dual number. Like
+complex numbers, a dual number joins two reals:
+
+$$
+a + \epsilon b
+$$
+
+Whereas complex numbers describe a real and an imaginary component, dual
+numbers may describe a value and its derivative for automatic differentiation.
+Essentially, each function on a computer is executed as a sequence of
+operations such as addition, subtraction, multiplication, etc. By repeatedly
+applying the chain rule for each operation, the derivate can be computed and
+tracked for each expression. In principle, a computer program utilizing
+floating point numbers may replace them with dual numbers, and differentiation
+is automatic.
+
+However, in most programming languages, basic numeric types (integers, float,
+complex numbers) are deeply integrated into its type system and operations. For
+this reason, most application of automatic differentiation occurs within
+specifically designed machine learning frameworks such as TensorFlow, PyTorch,
+or Jax. In contrast, Julia's type system allows straightforward implementation
+of dual numbers and flexible application of automatic differentiation. Of
+course, care is still required to deal with operations that do not have
+well-defined derivatives such as discontinuities or discrete logic (and, or,
+xor).
+
+The examples below highlight the Julia programming language and
+DifferentialEquations.jl as a promising option to build performant and
+numerically hydrological simulation software. To demonstrate, we illustrate and
+compare:
+
+1. a first-order explicit formulation
+2. a first-order implicit formulation
+3. DifferentialEquations.jl formulations, both implicit and explicit
+   
+We will illustrate both with two hydrological examples: a simple sequence of non-linear
+reservoirs, and one-dimensional unsaturated zone flow with Richards' equation.
+
+## Automatic sparsity detection
+ 
+Newton-Raphson iteration for more than one state requires a Jacobian matrix.
+The matrix encodes pairwise interations between states, and in most cases the
+number of interactions is limited, resulting in a sparse matrix with many zero
+terms. There are large computational and storage gains associated with storing
+these in special data structures, which store only non-zeros. However, in most
+solver packages, this necessitates providing a "Jacobian prototype" which informs
+the solver about which pairwise interations to expect -- which can then be filled
+using finite differences.
+
+One of the advantages of Julia as compared to Python or R is that the solver
+has full access to the differential equation code: it is just Julia code. It
+can then automatically derive pairwise interations between states and the
+associated Jacobian sparsity structure. Together with automatic differentation,
+this automates away almost all of the tedium associated with programming
+implicit formulations.
+
