@@ -18,15 +18,8 @@ struct RichardsImplicitState <: RichardsState
     dS::Vector{Float}  # dS/dψ
     residual::Vector{Float}
     residual_old::Vector{Float}
-end
-
-struct Richards1dColumn{P,S}
-    parameters::P
-    state::S
-    solver::NewtonSolver
-    tspan::Tuple{Float,Float}
-    saveat::Vector{Float}
-    saved::Vector{Vector{Float}}
+    # Forcing
+    forcing::Vector{Float64}
 end
 
 """
@@ -52,7 +45,7 @@ end
 
     Use Δt = ∞ for steady-state.
 """
-function residual!(state::RichardsImplicitState, Δt)
+function residual!(state::RichardsImplicitState, parameters, Δt)
     @. state.Δψ = @view(state.ψ[2:end]) - @view(state.ψ[1:end-1])
     Δψᵢ₊₁ = @view(state.Δψ[2:end])
     Δψᵢ₋₁ = @view(state.Δψ[1:end-1])
@@ -72,17 +65,17 @@ end
     Copy and preserve the old state for time stepping.
 """
 function copy_state!(state::RichardsImplicitState)
-    state.ψ_old .= state.ψ
-    state.θ_old .= state.θ
+    copyto!(state.ψ_old, state.ψ)
+    copyto!(state.θ_old, state.θ)
 end
 
 """
     Restore old state and residual after convergence failure.
 """
 function rewind!(state::RichardsImplicitState)
-    state.ψ .= state.ψ_old
-    state.θ .= state.θ_old
-    state.residual .= state.residual_old
+    copyto!(state.ψ, state.ψ_old)
+    copyto!(state.θ, state.θ_old)
+    copyto!(state.residual, state.residual_old)
 end
 
 """

@@ -1,12 +1,16 @@
+struct ExplicitCascadeState
+    S::Vector{Float64}
+    forcing::Vector{Float64}
+end
 
 
-function explicit_time_step!(cascade::BucketCascade, t, Δt)
-    S = cascade.S
-    p_rate = find_rate(cascade.precipitation, t)
-    e_rate = find_rate(cascade.evaporation, t)
+function explicit_time_step!(state::ExplicitCascadeState, parameters::BucketCascade, Δt)
+    S = state.S
+    p_rate = state.forcing[1]
+    e_rate = state.forcing[2]
 
     q_upstream = 0.0
-    for (i, bucket) in enumerate(cascade.buckets)
+    for (i, bucket) in enumerate(parameters.buckets)
         q_downstream = flow(bucket, S[i])
         ΔS = (
             precipitation(bucket, p_rate) - evaporation(bucket, S[i], e_rate) + q_upstream - q_downstream

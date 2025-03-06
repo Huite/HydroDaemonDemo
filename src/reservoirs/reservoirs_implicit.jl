@@ -1,34 +1,44 @@
-struct NewtonSolver
-    maxiter::Int
-    tolerance::Float64
-    alpha::Float64
-    J::Tridiagonal{Float64,Vector{Float64}}
-    r::Vector{Float64}
-    Sold::Vector{Float64}
+struct ImplicitCascadeState
+    S::Vector{Float64}
+    S_old::Vector{Float64}
+    forcing::Vector{Float64}
 end
 
-function NewtonSolver(cascade::BucketCascade, maxiter, tolerance, alpha)
-    n_bucket = length(cascade.buckets)
-    J = Tridiagonal(
-        zeros(n_bucket - 1),  # lower diagonal
-        zeros(n_bucket),  # diagonal
-        zeros(n_bucket - 1),  # upper diagonal
-    )
-    r = zeros(n_bucket)
-    Sold = zeros(n_bucket)
-    return NewtonSolver(maxiter, tolerance, alpha, J, r, Sold)
+function primary(state::ImplicitCascadeState)
+    return state.S
 end
 
-function converged(solver::NewtonSolver)
-    maxresidual = maximum(abs(residual) for residual in solver.r)
-    return maxresidual < solver.tolerance
+struct CascadeBuckets{B,F}
+    buckets::Vector{B}
+    forcing::F
 end
 
-function residual!(cascade::BucketCascade, solver, p_rate, e_rate)
+function force!(state::ImplicitCascadeState, parameters::CascadeBuckets, t)
+    p, e = find_rates(parameters.forcing, t)
+    state.forcing[1] = p
+    state.forcing[2] = e
+    return
+end
+
+function synchronize!(state::ImplicitCascadeState, parameters)
+    return
+end
+
+function copy_state!(state::ImplicitCascadeState)
+    copyto!(state.S_old, state.S)
+    return
+end
+
+function rewind!(state::ImplicitCascadeState)
+    copyto!(state.S, state.S_old)
+    return
+end
+
+function residual!(state::ImplicitCascadeState, parameters, Δt)
     S = cascade.S
     Sold = solver.Sold
     r = solver.r
-    for (i, bucket) in enumerate(cascade.buckets)
+    for (i, bucket) in enumerate(parameters.buckets)
         # Right-hand-side: water balance residual
         r[i] = (
             precipitation(bucket, p_rate) - smooth_evap_cushion(bucket, S[i], e_rate)  # Use smooth version

@@ -1,4 +1,24 @@
-function dSdt!(dS, S, params, t)
+struct Fuse070ImplicitState
+    S::Vector{Float64}
+    S_old::Vector{Float64}
+    forcing::Vector{Float64}
+end
+
+function synchronize!(state::Fuse070ImplicitState, parameters)
+    return
+end
+
+function copy_state!(state::Fuse070ImplicitState)
+    copyto!(state.S_old, state.S)
+    return
+end
+
+function rewind!(state::Fuse070ImplicitState)
+    copyto!(state.S, state.S_old)
+    return
+end
+
+function residual!(dS, S, params, t)
     fuse = params.modelparams
     p = params.forcing[:p]
     PET = params.forcing[:PET]
@@ -19,12 +39,10 @@ function dSdt!(dS, S, params, t)
     return
 end
 
-function jacobian!(jac, params, S)
-    fuse = params.modelparams
-    p = params.forcing[:p]
-    PET = params.forcing[:PET]
-    S1 = S[1]
-    S2 = S[2]
+function jacobian!(linearsolver, state::Fuse070ImplicitState, fuse::Fuse070Parameters, Δt)
+    p = state.forcing[1]
+    PET = state.forcing[2]
+    S1 = state.S[1]
 
     # Compute the terms and their derivatives.
     S⁺ = S1 / (fuse.ϕtens * fuse.S1max)
@@ -42,9 +60,11 @@ function jacobian!(jac, params, S)
     dqufof = -dqsx * act + (fuse.p - qsx) * dact
     dqb = fuse.v
 
-    jac[1, 1] = -de1 - dq12 - dqsx - dqufof
-    jac[1, 2] = 0.0
-    jac[2, 1] = dq12
-    jac[2, 2] = dqb
+    # Fill terms in the Jacobian
+    J = linearsolver.J
+    J[1, 1] = -de1 - dq12 - dqsx - dqufof
+    J[1, 2] = 0.0
+    J[2, 1] = dq12
+    J[2, 2] = dqb
     return
 end

@@ -2,10 +2,28 @@ abstract type State end
 abstract type ExplicitState <: State end
 abstract type ImplicitState <: State end
 
-function synchronize!(State::S <: ExplicitState, parameters) end
+# For explicit states
+function synchronize!(state::T, parameters) where {T<:ExplicitState}
+    error("synchronize! not implemented for $(typeof(state))")
+end
 
-function synchronize!(state::S <: ImplicitState, parameters) end
-function jacobian!(solver, state::S <: ImplicitState, parameters, Δt) end
-function residual!(state::S <: ImplicitState, Δt) end
-function copy_state!(state::S <: ImplicitState) end
-function rewind!(state::S <: ImplicitState) end
+# For implicit states
+function synchronize!(state::T, parameters) where {T<:ImplicitState}
+    error("synchronize! not implemented for $(typeof(state))")
+end
+
+function jacobian!(solver, state::T, parameters, Δt) where {T<:ImplicitState}
+    error("jacobian! not implemented for $(typeof(state))")
+end
+
+function residual!(state::T, Δt) where {T<:ImplicitState}
+    error("residual! not implemented for $(typeof(state))")
+end
+
+function copy_state!(state::T) where {T<:ImplicitState}
+    error("copy_state! not implemented for $(typeof(state))")
+end
+
+function rewind!(state::T) where {T<:ImplicitState}
+    error("rewind! not implemented for $(typeof(state))")
+end

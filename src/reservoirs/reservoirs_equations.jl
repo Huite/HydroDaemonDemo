@@ -44,7 +44,7 @@ end
 
 # Smoothed terms
 
-function smooth_flow(b::Bucket, S)
+function smooth_flow(b::B <: Bucket, S)
     Spos = max_smooth(S, 0, m)
     return b.a * Spos^b.b
 end
@@ -94,21 +94,17 @@ end
 
 struct BucketCascade{B<:Bucket}
     buckets::Vector{B}
-    S::Vector{Float64}
-    precipitation::PrecipitationForcing
-    evaporation::EvaporationForcing
+    forcing::MeteorologicalForcing
 end
 
 function bucket_cascade_analytic(
     area::Vector{Float64},
     a::Vector{Float64},
     b::Vector{Float64},
-    S0::Vector{Float64},
-    precipitation::PrecipitationForcing,
-    evaporation::EvaporationForcing,
+    forcing::MeteorologicalForcing,
 )
     buckets = [BucketAnalytic(_area, _a, _b) for (_area, _a, _b) in zip(area, a, b)]
-    return BucketCascade(buckets, copy(S0), precipitation, evaporation)
+    return BucketCascade(buckets, forcing)
 end
 
 
@@ -116,10 +112,8 @@ function bucket_cascade_autodiff(
     area::Vector{Float64},
     a::Vector{Float64},
     b::Vector{Float64},
-    S0::Vector{Float64},
-    precipitation::PrecipitationForcing,
-    evaporation::EvaporationForcing,
+    forcing::MeteorologicalForcing,
 )
     buckets = [BucketAutodiff(_area, _a, _b) for (_area, _a, _b) in zip(area, a, b)]
-    return BucketCascade(buckets, copy(S0), precipitation, evaporation)
+    return BucketCascade(buckets, forcing)
 end

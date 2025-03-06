@@ -4,12 +4,13 @@ using Revise
 using LinearAlgebra
 using DifferentialEquations
 
+include("state.jl")
 include("utils.jl")
 include("forcing.jl")
 
 # Cascade of buckets example
-include("reservoirs/equations_reservoirs.jl")
-include("reservoirs/explicit_reservoirs.jl")
-include("reservoirs/implicit_reservoirs.jl")
+include("reservoirs/reservoirs_equations.jl")
+include("reservoirs/reservoirs_explicit.jl")
+include("reservoirs/reservoirs_implicit.jl")
 
 end

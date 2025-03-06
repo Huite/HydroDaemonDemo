@@ -1,18 +1,5 @@
-##
-using ComponentArrays
-using CSV
-using Dates
-using DataFrames
-using DifferentialEquations
-using Plots
-
-using Revise
-##
-
-struct DiffEqParams{T}
-    timeseries::DataFrame
-    forcing::ComponentArray{Float64}
-    modelparams::T
+function prepare_state(p::Fuse070Parameters, initial, forcing)
+    return Fuse070ExplicitState(initial, forcing)
 end
 
 """

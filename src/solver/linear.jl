@@ -10,7 +10,7 @@ const Float = Float64
 """Tridiagonal linear solver."""
 struct LinearSolverThomas <: LinearSolver
     n::Int
-    M::Tridiagonal{Float,Vector{Float}}
+    J::Tridiagonal{Float,Vector{Float}}
     rhs::Vector{Float64}
     ϕ::Vector{Float64}
     γ::Vector{Float64}
@@ -18,27 +18,27 @@ struct LinearSolverThomas <: LinearSolver
 end
 
 function LinearSolverThomas(n)
-    M = Tridiagonal(zeros(n - 1), zeros(n), zeros(n - 1))
-    return LinearSolverThomas(n, M, zeros(n), zeros(n), zeros(n), zeros(n))
+    J = Tridiagonal(zeros(n - 1), zeros(n), zeros(n - 1))
+    return LinearSolverThomas(n, J, zeros(n), zeros(n), zeros(n), zeros(n))
 end
 
 """Thomas algorithm."""
 function linearsolve!(solver::LinearSolverThomas)
-    (; n, M, rhs, ϕ, γ, β) = solver
+    (; n, J, rhs, ϕ, γ, β) = solver
 
-    β = M.d[1]
+    β = J.d[1]
     ϕ[1] = rhs[1] / β
 
     for j = 2:n
-        γ[j] = M.du[j-1] / β
-        β = M.d[j] - M.dl[j-1] * γ[j]
+        γ[j] = J.du[j-1] / β
+        β = J.d[j] - J.dl[j-1] * γ[j]
         if abs(β) < 1.e-12
             # This should only happen on last element of forward pass for problems
             # with zero eigenvalue. In that case the algorithmn is still stable.
             error("Beta too small!")
             break
         end
-        ϕ[j] = (rhs[j] - M.dl[j-1] * ϕ[j-1]) / β
+        ϕ[j] = (rhs[j] - J.dl[j-1] * ϕ[j-1]) / β
     end
 
     for j = 1:n-1
@@ -50,19 +50,19 @@ end
 
 struct LinearSolverLU <: LinearSolver
     n::Int
-    M::Tridiagonal{Float,Vector{Float}}
+    J::Tridiagonal{Float,Vector{Float}}
     F::LU{Float64,Tridiagonal{Float,Vector{Float}}}
     rhs::Vector{Float64}
     ϕ::Vector{Float}
 end
 
 function LinearSolverLU(n)
-    M = Tridiagonal(zeros(n - 1), zeros(n), zeros(n - 1))
-    return LinearSolverLU(n, M, lu(M), zeros(n), zeros(n))
+    J = Tridiagonal(zeros(n - 1), zeros(n), zeros(n - 1))
+    return LinearSolverLU(n, J, lu(M), zeros(n), zeros(n))
 end
 
 function linearsolve!(solver::LinearSolverLU)
-    lu!(solver.F, solver.M)
+    lu!(solver.F, solver.J)
     # Inplace for Tridiagonal since Julia 1.11.
     # Note: stores result in B, overwrites diagonals.
     ldiv!(solver.F, solver.rhs)

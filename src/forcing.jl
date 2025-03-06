@@ -1,16 +1,13 @@
 abstract type Forcing end
 
-struct PrecipitationForcing <: Forcing
+
+struct MeteorologicalForcing
     t::Vector{Float64}
-    rate::Vector{Float64}
+    precipitation::Vector{Float64}
+    evaporation::Vector{Float64}
 end
 
-struct EvaporationForcing <: Forcing
-    t::Vector{Float64}
-    rate::Vector{Float64}
-end
-
-function find_rate(forcing::Forcing, t)
+function find_rates(forcing::MeteorologicalForcing, t)
     index = searchsortedfirst(forcing.t, t)
-    return forcing.rate[index]
+    return (forcing.precipitation[index], forcing.evaporation[index])
 end

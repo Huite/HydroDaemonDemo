@@ -10,6 +10,7 @@ struct RicardsExplicitState <: RichardsState
     k_inter::Vector{Float}
     kΔz⁻¹::Vector{Float}
     Δψ::Vector{Float}  # Δψ/Δz
+    forcing::Vector{Float}
 end
 
 """
