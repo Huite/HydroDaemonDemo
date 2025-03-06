@@ -1,0 +1,88 @@
+"""Backtracking line search."""
+
+abstract type LineSearch end
+
+function linesearch!(_::Nothing, state, solver)::Bool
+    linearsolve!(solver)
+    update!(state, 1.0)
+    return true
+end
+
+struct SimpleLineSearch <: LineSearch
+    a0::Float64  # initial step size
+    b::Float64  # backtracking reduction factor
+    c::Float64  # Sufficient decrease for Armijo condition
+    minstep::Float64
+    maxiter::Int
+end
+
+function SimpleLineSearch(; a0 = 1.0, b = 0.5, c = 1e-4, minstep = 1e-10, maxiter = 5)
+    return SimpleLineSearch(a0, b, c, minstep, maxiter)
+end
+
+
+function compute_step(ls::SimpleLineSearch, _, α₂, _, _, _)
+    return max(ls.b * α₂, ls.minstep * α₂)
+end
+
+struct CubicLineSearch <: LineSearch
+    a0::Float64  # initial step size
+    c::Float64  # Sufficient decrease for Armijo condition
+    maxiter::Int
+    low::Float64  # interpolation bounds
+    high::Float64  # interpolation bounds
+end
+
+function CubicLineSearch(; a0 = 0.5, c = 1e-4, maxiter = 5, low = 0.1, high = 0.5)
+    return QuadraticLineSearch(a0, c, maxiter, low, high)
+end
+
+function compute_step(ls::CubicLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
+    grad₀ = -L2₀  # specifically for the L2-norm
+
+    div = 1.0 / (α₁^2 * α₂^2 * (α₂ - α₁))
+    a = (α₁^2 * (L2₂ - L2₀ - grad₀ * α₂) - α₂^2 * (L2₁ - L2₀ - grad₀ * α₁)) * div
+    b = (-α₁^3 * (L2₂ - L2₀ - grad₀ * α₂) + α₂^3 * (L2₁ - L2₀ - grad₀ * α₁)) * div
+
+    # Fall back to quadratic on first iteration.
+    if abs(a) < eps(Float64)
+        a_cubic = grad₀ / (2 * b)
+    else
+        # discriminant
+        d = max(b^2 - 3 * a * grad₀, 0.0)
+        # quadratic equation root
+        a_cubic = (-b + sqrt(d)) / (3 * a)
+    end
+
+    # Bound the step size
+    a_cubic = clamp(a_cubic, α₂ * ls.low, α₂ * ls.high)
+    return α₂, a_cubic
+end
+
+function linesearch!(ls::LS <: LineSearch, state, parameters, Δt)
+    # α₀ = 0.0 (implicit)
+    α₁ = 0.0
+    α₂ = ls.a0
+    # Compute the L2 norm of the residual to check for convergence
+    L2₀ = norm(state.residual)
+    L2₁ = L2₀
+
+    for _ = 1:ls.maxiter
+        # Take a step
+        update!(state, α₂)
+        synchronize!(state, parameters)
+        residual!(state)
+        L2₂ = norm(state.residual)
+
+        # Armijo condition for sufficient decrease
+        if L2₂ <= (1 - ls.c * α₂) * L2₀
+            return true
+        end
+
+        # Compute new step size
+        α₁, α₂ = compute_step(ls, α₁, α₂, L2₀, L2₁, L2₂)
+        L2₁ = L2₂
+    end
+    # Achieved maximum iterations
+    return false
+end

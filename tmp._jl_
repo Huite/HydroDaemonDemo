@@ -1,0 +1,345 @@
+abstract type LinearSolver end
+const Float = Float64
+
+"""Tridiagonal linear solver."""
+struct LinearSolverThomas <: LinearSolver
+    n::Int 
+    M:: Tridiagonal{Float, Vector{Float}}
+    rhs::Vector{Float64}
+    ϕ::Vector{Float64}
+    γ::Vector{Float64}
+    β::Vector{Float64}
+end
+
+function LinearSolverThomas(n)
+    M = Tridiagonal(zeros(n-1), zeros(n), zeros(n-1))
+    return LinearSolverThomas(
+        n,
+        M,
+        zeros(n),
+        zeros(n),
+        zeros(n),
+        zeros(n),
+    )
+end
+
+"""Thomas algorithm."""
+function linearsolve!(solver::LinearSolverThomas)
+    (;n, M, rhs, ϕ, γ, β) = solver
+
+    β = M.d[1]
+    ϕ[1] = rhs[1] / β
+
+    for j=2:n
+        γ[j] = M.du[j-1] / β
+        β = M.d[j]-M.dl[j-1]*γ[j]
+        if abs(β) < 1.e-12
+            # This should only happen on last element of forward pass for problems
+            # with zero eigenvalue. In that case the algorithmn is still stable.
+            error("Beta too small!")
+            break
+        end
+        ϕ[j] = (rhs[j]-M.dl[j-1]*ϕ[j-1])/β
+    end
+
+    for j=1:n-1
+        k = n-j
+        ϕ[k] = ϕ[k]-γ[k+1]*ϕ[k+1]
+    end
+    return
+end
+
+struct LinearSolverLU <: LinearSolver
+    n::Int
+    M::Tridiagonal{Float, Vector{Float}}
+    F::LU{Float64, Tridiagonal{Float, Vector{Float}}}
+    rhs::Vector{Float64}
+    ϕ::Vector{Float}
+end
+
+function LinearSolverLU(n)
+    M = Tridiagonal(zeros(n-1), zeros(n), zeros(n-1))
+    return LinearSolverLU(
+        n,
+        M,
+        lu(M),
+        zeros(n),
+        zeros(n),
+    )
+end
+
+function linearsolve!(solver::LinearSolverLU)
+    lu!(solver.F, solver.M)
+    # Inplace for Tridiagonal since Julia 1.11.
+    # Stores result in B, overwrites diagonals.
+    ldiv!(solver.F, solver.rhs)
+    copyto!(solver.ϕ, solver.rhs)
+end
+
+abstract type LineSearch end
+
+"""
+    NoBacktracking()
+
+A line search strategy that simply takes the full step without any backtracking.
+Always returns true to maintain interface compatibility with other line search methods.
+"""
+
+function linesearch!(_::Nothing, state, solver)::Bool
+    linearsolve!(solver)
+    state += update
+    return true
+end
+
+"""See: Nocedal and Wright, algorithm 3.10."""
+struct BacktrackingSearch <: LineSearch
+    a::Float64  # initial step size
+    b::Float64  # backtracking factor
+    c::Float64  # Sufficient decrease
+    minstep::Float64
+    maxiter::Int
+end
+
+function BacktrackingSearch()
+    return BacktrackingSearch(1.0, 0.5, 1e-4, 1e-10, 5)
+end
+
+function linesearch!(bt::BacktrackingSearch, state, parameters, Δt)::Bool
+    a = bt.a
+    b = bt.b
+    c = bt.c
+    r2 = norm(residual)
+    for _ in 1:bt.maxiter
+        update!(stakte, a * )
+        state += a * update
+
+        synchronize!(state, parameters)
+
+        r2new = norm(residual)
+        if r2new <= (1 - c * a) * r2
+            break
+        else
+            # Revert, decrease a
+            state -= a * update
+            a *= b
+            if a < bt.minstep
+                @warn "Backtracking failed to find a suitable step size"
+                return false
+            end
+        end
+    end
+    return true
+end
+
+struct NewtonSolver{LS <: LinearSolver, BT <: Union{LineSearch, Nothing}, PT}
+    linearsolver::LS
+    backtracking::BT
+    pseudotransient::PT
+    maxiter::Int
+    tolerance::Float
+end
+
+function converged(newton::NewtonSolver)
+    maxresidual = maximum(abs(r) for r in newton.linearsolver.rhs)
+    return maxresidual < newton.tolerance
+end
+
+function solve!(newton::NewtonSolver, state, parameters, Δt)
+    # Maintain old state for time stepping.
+    copy_state!(state)
+    # Synchronize dependent variables.
+    synchronize!(state, parameters)
+    for _ in 1:newton.maxiter
+        # Formulate and compute the residual.
+        residual!(state, newton.linearsolver, Δt)
+        # Check the residual for convergence.
+        if converged(newton)
+            return true
+        end
+        # Linearize and solve.
+        jacobian!(state, newton.linearsolver, parameters, Δt)
+        pseudotransient_continuation!(newton.pseudotransient, state, solver, Δt)
+        linearsolve!(newton.linearsolver)
+        # Find and apply appropriate update.
+        linesearch!(newton.backtracking, state, parameters, Δt)
+        # Synchronize dependent variables.
+        synchronize!(state, parameters)
+    end
+    return false
+end
+
+struct MualemVanGenuchten <: ConstitutiveRelationships
+    α::Float     # Air entry pressure [1/L]
+    n::Float     # Pore size distribution [-]
+    m::Float     # Usually set to 1 - 1/n [-]
+    l::Float     # Pore connectivity parameter, typically 0.5 [-]
+    ks::Float    # Saturated hydraulic conductivity [L/T]
+    θs::Float    # Saturated water content [-]
+    θr::Float    # Residual water content [-]
+end
+
+# Mualem-van Genuchten functions
+function effective_saturation(ψ, mvg::MualemVanGenuchten)
+    return (1 + (mvg.α * abs(min(ψ, 0.0)))^mvg.n)^(-mvg.m)
+end
+
+function moisture_content(ψ, mvg::MualemVanGenuchten)
+    Se = effective_saturation(ψ, mvg)
+    return mvg.θr + Se * (mvg.θs - mvg.θr)
+end
+
+function specific_moisture_capacity(ψ, mvg::MualemVanGenuchten)
+    if ψ >= 0
+        return 0.0
+    end
+
+    Se = effective_saturation(ψ, mvg)
+    dSe_dh = mvg.α * mvg.n * mvg.m * abs(ψ)^(mvg.n-1) * Se^(1/mvg.m) * Se
+    return dSe_dh * (mvg.θs - mvg.θr)
+end
+
+function conductivity(ψ, mvg::MualemVanGenuchten)
+    Se = effective_saturation(ψ, mvg)
+    return mvg.ks * Se^mvg.l * (1 - (1 - Se^(1/mvg.m))^mvg.m)^2
+end
+
+"""dK/dψ for Newton formulation."""
+function dconductivity(ψ, mvg::MualemVanGenuchten)
+    if ψ >= 0
+        return 0.0
+    end
+
+    Se = effective_saturation(ψ, mvg)
+    dSe_dh = mvg.α * mvg.n * mvg.m * abs(ψ)^(mvg.n-1) * Se^(1/mvg.m) * Se
+
+    # Term 1: derivative of Se^l
+    term1 = mvg.l * Se^(mvg.l - 1) * dSe_dh
+
+    # Term 2: derivative of (1 - (1 - Se^(1/m))^m)^2
+    inner = 1 - Se^(1/mvg.m)
+    inner_der = -(1/mvg.m) * Se^(1/mvg.m - 1) * dSe_dh
+    outer = 1 - inner^mvg.m
+    outer_der = -mvg.m * inner^(mvg.m-1) * inner_der
+
+    return mvg.ks * (
+        term1 * (1 - inner^mvg.m)^2 +
+        2 * Se^mvg.l * outer * outer_der
+    )
+end
+
+"""
+This struct holds the mutable members of the Richards 1D simulation.
+"""
+struct RicardsState
+    ψ::Vector{Float}
+    θ::Vector{Float}
+    ψ_old::Vector{Float}
+    θ_old::Vector{Float}
+    # specific moisture capacity
+    C::Vector{Float}
+    # conductivity
+    k::Vector{Float}
+    kΔz⁻¹::Vector{Float}
+    k_inter::Vector{Float}
+    # Newton-Raphson work arrays
+    Δψ::Vector{Float}
+    δ::Vector{Float}
+    dk::Vector{Float}
+end
+
+struct Parameters{C}
+    constitutive::Vector{C}
+    Δz::Vector{Float}
+end
+
+struct Richards1dColumn{P, S}
+    parameters::P
+    state::S
+    solver::NewtonSolver
+end
+
+function conductance!(state::RicardsState, parameters) 
+    @. state.k = conductivity(state.ψ, parameters)
+    @. state.dk = dconductivity(state.ψ, parameters)
+    @. state.k_inter = 0.5 * (@view(state.k[1: end-1]) + @view(state.k[2:end]))
+    @. state.kΔz⁻¹ = state.k_inter / parameters.Δz
+    return
+end
+
+function specific_moisture_capacity!(state::RicardsState, parameters::ParametersVector)
+    @. state.C = specific_moisture_capacity(@view(state.ψ[2:end - 1]), parameters)
+    return
+end
+
+function moisture_content!(state::RichardsImplicitState, parameters::ParametersVector)
+    @. state.θ = moisture_content(state.ψ[2:end - 1], parameters)
+end
+
+"""
+    Synchronize the dependent variables (k, C, θ) based on ψ.
+"""
+function synchronize!(state::RicardsState, parameters)
+    conductance!(state, parameters)
+    specific_moisture_capacity!(state, parameters)
+    moisture_content!(state, parameters)
+end
+
+"""
+    Formulate residual and set rhs.
+"""
+function residual!(state::RicardsState, linearsolver, Δt)
+    @. state.Δψ = @view(state.ψ[2:end]) - @view(state.ψ[1:end - 1])
+    Δψᵢ₊₁ = @view(state.Δψ[2:end])
+    Δψᵢ₋₁ = @view(state.Δψ[1:end - 1])
+    kΔz⁻¹ᵢ₊₁ = @view(state.kΔz⁻¹[2:end])
+    kΔz⁻¹ᵢ₋₁ = @view(state.kΔz⁻¹[1:end - 1])
+
+    # storage
+    @. linearsolver.rhs = state.Δz * (state.θ_old - state.θ) / Δt
+    # flow
+    @. linearsolver.rhs += kΔz⁻¹ᵢ₊₁ * Δψᵢ₊₁ - kΔz⁻¹ᵢ₋₁ * Δψᵢ₋₁
+    # gravity
+    @. linearsolver.rhs += (@view(state.k_inter[1:end - 1]) - @view(state.k_inter[2:end]))
+    return
+end
+
+"""
+    Copy and preserve the old state for time stepping.
+"""
+function copy_state!(state::RicardsState)
+    state.ψ_old .= state.ψ
+    state.θ_old .= state.θ
+end
+
+"""
+    Formulate and set coefficients in the matrix.
+"""
+function jacobian!(linearsolver, state::RicardsState, parameters, Δt)
+    kΔz⁻¹ᵢ₋₁ = @view(state.kΔz⁻¹[1:end - 1])
+    kΔz⁻¹ᵢ₊₁ = @view(state.kΔz⁻¹[2:end])
+    Δz = parameters.Δz
+
+    # Calculate tridiagonal Jacobian matrix coefficients
+    dl = linearsolver.M.dl
+    d = linearsolver.M.d
+    du = linearsolver.M.du
+    @. dl = -kΔz⁻¹ᵢ₋₁[2:end]
+    @. d = Δz / Δt * state.C + kΔz⁻¹ᵢ₋₁ + kΔz⁻¹ᵢ₊₁
+    @. du = -kΔz⁻¹ᵢ₊₁[1:end-1]
+
+    # Add linearized conductivity terms
+    Δψᵢ₋₁ = @view(state.Δψ[1:end - 1])
+    Δψᵢ₊₁ = @view(state.Δψ[2:end])
+    dkᵢ₋₁ = @view(state.dk[1:end - 2])
+    dkᵢ₊₁ = @view(state.dk[3:end])
+    
+    Δψᵢ₋₁l = @view(Δψᵢ₋₁[2:end])
+    Δψᵢ₊₁u = @view(Δψᵢ₊₁[1:end-1])
+    dkᵢ₋₁l = @view(dkᵢ₋₁[2:end])
+    dkᵢ₊₁u = @view(dkᵢ₊₁[1:end-1])
+
+    @. dl += -dkᵢ₋₁l * (Δψᵢ₋₁l / Δz + 1.0) 
+    @. d += -dkᵢ₋₁ * (Δψᵢ₋₁ / Δz + 1.0) + dkᵢ₊₁ * (Δψᵢ₊₁ / Δz + 1.0) 
+    @. du += dkᵢ₊₁u * (Δψᵢ₊₁u / Δz + 1.0) 
+    return
+end
