@@ -1,8 +1,8 @@
 struct FixedTimeStepper
-    Δt0::Float64
+    Δt0::Float
 end
 
-function compute_time_step(timestepper, _, converged, _)
+function compute_time_step(timestepper::FixedTimeStepper, _, converged, _)
     if !converged
         error("Failed to converge. Consider using adaptive time stepping.")
     end
@@ -10,15 +10,15 @@ function compute_time_step(timestepper, _, converged, _)
 end
 
 struct AdaptiveTimeStepper
-    Δt0::Float64
+    Δt0::Float
     n_increase::Int
-    increase::Float64
+    increase::Float
     n_decrease::Int
-    decrease::Float64
-    failure::Float64
+    decrease::Float
+    failure::Float
 end
 
-function compute_time_step(timestepper, Δt, converged, n_newton_iter)
+function compute_time_step(timestepper::AdaptiveTimeStepper, Δt, converged, n_newton_iter)
     if !converged
         return Δt * timestepper.failure
     elseif n_newton_iter > timestepper.n_decrease

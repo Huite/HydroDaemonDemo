@@ -16,6 +16,15 @@ struct NewtonSolver{LS<:LinearSolver,BT<:Union{LineSearch,Nothing},PT}
     pseudotransient::PT
     maxiter::Int
     tolerance::Float
+    function NewtonSolver(;
+        linearsolver::LS,
+        backtracking::BT = nothing,
+        pseudotransient::PT = nothing,
+        maxiter::Int = 100,
+        tolerance::Float64 = 1e-6
+    ) where {LS<:LinearSolver, BT<:Union{LineSearch,Nothing}, PT}
+        return new{LS, BT, PT}(linearsolver, backtracking, pseudotransient, maxiter, tolerance)
+    end
 end
 
 function converged(newton::NewtonSolver)
@@ -32,7 +41,7 @@ function solve!(newton::NewtonSolver, state, parameters, Δt)
     ptcΔt = initial_pseudotimestep(newton.pseudotransient, state)
     for i = 1:newton.maxiter
         # Formulate and compute the residual.
-        residual!(state, Δt)
+        residual!(newton, state, parameters, Δt)
         # Check the residual for convergence.
         if converged(newton)
             return true, i
@@ -46,7 +55,7 @@ function solve!(newton::NewtonSolver, state, parameters, Δt)
             linearsolve!(newton.linearsolver)
             # Find and apply optimized update.
             # TODO: if no PTC, linesearch can be also be checked for plausibility.
-            linesearch!(newton.backtracking, state, parameters, Δt)
+            linesearch!(newton, newton.backtracking, state, parameters, Δt)
             ptc_succes = check_ptc!(newton.pseudotransient, state)
         end
 

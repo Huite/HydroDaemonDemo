@@ -1,15 +1,15 @@
 abstract type Bucket end
 
 struct BucketAnalytic <: Bucket
-    area::Float64
-    a::Float64
-    b::Float64
+    area::Float
+    a::Float
+    b::Float
 end
 
 struct BucketAutodiff <: Bucket
-    area::Float64
-    a::Float64
-    b::Float64
+    area::Float
+    a::Float
+    b::Float
 end
 
 const threshold = 10.0
@@ -44,7 +44,7 @@ end
 
 # Smoothed terms
 
-function smooth_flow(b::B <: Bucket, S)
+function smooth_flow(b::Bucket, S)
     Spos = max_smooth(S, 0, m)
     return b.a * Spos^b.b
 end
@@ -98,22 +98,35 @@ struct BucketCascade{B<:Bucket}
 end
 
 function bucket_cascade_analytic(
-    area::Vector{Float64},
-    a::Vector{Float64},
-    b::Vector{Float64},
+    area::Vector{Float},
+    a::Vector{Float},
+    b::Vector{Float},
     forcing::MeteorologicalForcing,
 )
     buckets = [BucketAnalytic(_area, _a, _b) for (_area, _a, _b) in zip(area, a, b)]
     return BucketCascade(buckets, forcing)
 end
 
-
 function bucket_cascade_autodiff(
-    area::Vector{Float64},
-    a::Vector{Float64},
-    b::Vector{Float64},
+    area::Vector{Float},
+    a::Vector{Float},
+    b::Vector{Float},
     forcing::MeteorologicalForcing,
 )
     buckets = [BucketAutodiff(_area, _a, _b) for (_area, _a, _b) in zip(area, a, b)]
     return BucketCascade(buckets, forcing)
+end
+
+struct CascadeState
+    S::Vector{Float}
+    Sold::Vector{Float}
+    forcing::Vector{Float}
+end
+
+function primary(state::CascadeState)
+    return state.S
+end
+
+function prepare_state(p::BucketCascade, initial, forcing)
+    return CascadeState(initial, copy(initial), zeros(2))
 end

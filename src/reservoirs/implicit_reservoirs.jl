@@ -1,21 +1,21 @@
 using LinearAlgebra
 
 struct Bucket
-    area::Float64
-    a::Float64
-    b::Float64
+    area::Float
+    a::Float
+    b::Float
 end
 
 abstract type Forcing end
 
 struct PrecipitationForcing <: Forcing
-    t::Vector{Float64}    
-    rate::Vector{Float64}
+    t::Vector{Float}    
+    rate::Vector{Float}
 end
 
 struct EvaporationForcing <: Forcing
-    t::Vector{Float64}
-    rate::Vector{Float64}
+    t::Vector{Float}
+    rate::Vector{Float}
 end
 
 function find_rate(forcing<:Forcing, t)

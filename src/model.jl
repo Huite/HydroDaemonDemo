@@ -10,18 +10,48 @@ struct ExplicitHydrologicalModel{P,S,T} <: HydrologicalModel
 end
 
 function time_step!(model::ExplicitHydrologicalModel, Δt)
-    explicit_time_step!(model.state, model.parameters, Δt)
+    rhs!(state, parameters, Δt)
+    primary(state) .+= state.update
     return Δt
 end
 
-struct ImplicitHydrologicalModel{P,S,T} <: HydrologicalModel
+struct ImplicitHydrologicalModel{P,S,T, LS, BT} <: HydrologicalModel
     parameters::P  # Physical parameters
     state::S  # State and dependent variables
-    solver::NewtonSolver  # Non-linear Newton-Raphson solver
+    solver::NewtonSolver{LS, BT}  # Non-linear Newton-Raphson solver
     tspan::Tuple{Float,Float}
     saveat::Vector{Float}  # frequency
     saved::Matrix{Float}  # output
     timestepper::T
+end
+
+function ImplicitHydrologicalModel(
+    parameters,
+    initial::Vector{Float64},
+    solver,
+    tspan,
+    saveat,
+    timestepper,
+)
+    state = prepare_state(parameters, copy(initial), parameters.forcing)
+
+    if isnothing(saveat)
+        saveat = copy(parameters.forcing.t)
+    end
+    
+    nstate = length(primary(state)) 
+    nsave = length(saveat)
+    saved = zeros(nstate, nsave)
+
+    return ImplicitHydrologicalModel(
+        parameters,
+        state,
+        solver,
+        tspan,
+        saveat,
+        saved,
+        timestepper,
+    )
 end
 
 function time_step!(model::ImplicitHydrologicalModel, Δt)
@@ -91,33 +121,36 @@ end
 struct SolverConfig
     alg::Any
     adaptive::Bool
-    dt::Float64
-    dtmin::Float64
-    dtmax::Float64
+    dt::Float
+    dtmin::Float
+    dtmax::Float
     force_dtmin::Bool
-    abstol::Float64
-    reltol::Float64
+    abstol::Float
+    reltol::Float
     maxiters::Int
 end
 
 struct DiffEqHydrologicalModel
     problem::ODEProblem
-    saveat::Vector{Float64}
-    tstops::Vector{Float64}
+    saveat::Vector{Float}
+    tstops::Vector{Float}
     callbacks::CallbackSet
     solverconfig::SolverConfig
-    isoutofdomain::Function
+    # isoutofdomain::Function  # use a closure instead, dispatch on parameters or state?
 end
 
 function DiffEqHydrologicalModel(
-    rhs!,
     parameters,
-    forcing,
     initial,
     tspan,
     saveat,
     solverconfig,
 )
+    if isnothing(saveat)
+        saveat = copy(parameters.forcing.t)
+    end
+
+    forcing = parameters.forcing
     state = prepare_state(parameters, copy(initial), forcing)
     params = DiffEqParams(buckets, state)
     tstops = unique(sort(vcat(forcing.t, saveat)))
@@ -128,7 +161,7 @@ function DiffEqHydrologicalModel(
     return HydrologicalModel(problem, saveat, tstops, callbacks, solverconfig)
 end
 
-function run!(model::HydrologicalModel)
+function run!(model::DiffEqHydrologicalModel)
     config = model.solverconfig
     _, tend = model.problem.tspan
 

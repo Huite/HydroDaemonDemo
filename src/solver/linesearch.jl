@@ -9,10 +9,10 @@ function linesearch!(_::Nothing, state, solver)::Bool
 end
 
 struct SimpleLineSearch <: LineSearch
-    a0::Float64  # initial step size
-    b::Float64  # backtracking reduction factor
-    c::Float64  # Sufficient decrease for Armijo condition
-    minstep::Float64
+    a0::Float  # initial step size
+    b::Float  # backtracking reduction factor
+    c::Float  # Sufficient decrease for Armijo condition
+    minstep::Float
     maxiter::Int
 end
 
@@ -26,11 +26,11 @@ function compute_step(ls::SimpleLineSearch, _, α₂, _, _, _)
 end
 
 struct CubicLineSearch <: LineSearch
-    a0::Float64  # initial step size
-    c::Float64  # Sufficient decrease for Armijo condition
+    a0::Float  # initial step size
+    c::Float  # Sufficient decrease for Armijo condition
     maxiter::Int
-    low::Float64  # interpolation bounds
-    high::Float64  # interpolation bounds
+    low::Float  # interpolation bounds
+    high::Float  # interpolation bounds
 end
 
 function CubicLineSearch(; a0 = 0.5, c = 1e-4, maxiter = 5, low = 0.1, high = 0.5)
@@ -45,7 +45,7 @@ function compute_step(ls::CubicLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
     b = (-α₁^3 * (L2₂ - L2₀ - grad₀ * α₂) + α₂^3 * (L2₁ - L2₀ - grad₀ * α₁)) * div
 
     # Fall back to quadratic on first iteration.
-    if abs(a) < eps(Float64)
+    if abs(a) < eps(Float)
         a_cubic = grad₀ / (2 * b)
     else
         # discriminant
@@ -59,7 +59,7 @@ function compute_step(ls::CubicLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
     return α₂, a_cubic
 end
 
-function linesearch!(ls::LS <: LineSearch, state, parameters, Δt)
+function linesearch!(ls::LineSearch, solver, state, parameters, Δt)
     # α₀ = 0.0 (implicit)
     α₁ = 0.0
     α₂ = ls.a0
@@ -71,7 +71,7 @@ function linesearch!(ls::LS <: LineSearch, state, parameters, Δt)
         # Take a step
         update!(state, α₂)
         synchronize!(state, parameters)
-        residual!(state)
+        residual!(solver, state, parameters, Δt)
         L2₂ = norm(state.residual)
 
         # Armijo condition for sufficient decrease

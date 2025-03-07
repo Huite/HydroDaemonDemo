@@ -1,7 +1,7 @@
 struct Fuse070ImplicitState
-    S::Vector{Float64}
-    S_old::Vector{Float64}
-    forcing::Vector{Float64}
+    S::Vector{Float}
+    Sold::Vector{Float}
+    forcing::Vector{Float}
 end
 
 function synchronize!(state::Fuse070ImplicitState, parameters)
@@ -9,12 +9,12 @@ function synchronize!(state::Fuse070ImplicitState, parameters)
 end
 
 function copy_state!(state::Fuse070ImplicitState)
-    copyto!(state.S_old, state.S)
+    copyto!(state.Sold, state.S)
     return
 end
 
 function rewind!(state::Fuse070ImplicitState)
-    copyto!(state.S, state.S_old)
+    copyto!(state.S, state.Sold)
     return
 end
 

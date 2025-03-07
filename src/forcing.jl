@@ -2,9 +2,9 @@ abstract type Forcing end
 
 
 struct MeteorologicalForcing
-    t::Vector{Float64}
-    precipitation::Vector{Float64}
-    evaporation::Vector{Float64}
+    t::Vector{Float}
+    precipitation::Vector{Float}
+    evaporation::Vector{Float}
 end
 
 function find_rates(forcing::MeteorologicalForcing, t)

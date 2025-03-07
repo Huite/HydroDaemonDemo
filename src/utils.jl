@@ -98,5 +98,5 @@ function sigmoid_activation(S, Smax, ω)
 end
 
 function activation(S, Smax)
-    return max(0.0, Float64(S > Smax))
+    return max(0.0, Float(S > Smax))
 end

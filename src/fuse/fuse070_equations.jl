@@ -1,12 +1,12 @@
 struct Fuse070Parameters
-    ϕtens::Float64
-    S1max::Float64
-    b::Float64
-    ku::Float64
-    c::Float64
-    v::Float64
-    m::Float64
-    ω::Float64
+    ϕtens::Float
+    S1max::Float
+    b::Float
+    ku::Float
+    c::Float
+    v::Float
+    m::Float
+    ω::Float
 end
 
 function Fuse070Parameters()
@@ -19,4 +19,8 @@ function Fuse070Parameters()
     m = 0.01
     ω = S1max * 0.05  # from FUSE paper
     return Fuse070Parameters(ϕtens, S1max, b, ku, c, v, m, ω)
+end
+
+function prepare_state(p::Fuse070Parameters, initial, forcing)
+    return Fuse070ExplicitState(initial, forcing)
 end

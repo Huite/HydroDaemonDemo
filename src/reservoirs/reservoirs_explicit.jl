@@ -1,6 +1,6 @@
 struct ExplicitCascadeState
-    S::Vector{Float64}
-    forcing::Vector{Float64}
+    S::Vector{Float}
+    forcing::Vector{Float}
 end
 
 

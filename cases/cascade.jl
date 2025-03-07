@@ -1,43 +1,73 @@
+##
 using HydroDaemonDemo
 using CSV
-using Dates
 using DataFrames
+using Dates
+using DifferentialEquations
+##
 
-const DAY = 86_400.0
-
-df = CSV.read("cases/forcing.csv", DataFrame)
-df.time = Dates.toms.(df.Date - df.Date[1]) / 1000.0
+const DAY = 24.0 * 3600.0
 
 area = 100.0
 n = 5
 a = 1e-7
 b = 1.5
 
-cascade = HydroDaemonDemo.BucketCascade(
+df = CSV.read("cases/forcing.csv", DataFrame)
+df.time = Dates.toms.(df.Date - df.Date[1]) / 1000.0
+forcing = HydroDaemonDemo.MeteorologicalForcing(
+    df.time,
+    df.P / 1000.0,
+    df.ET / 1000.0,
+)
+cascade = HydroDaemonDemo.bucket_cascade_analytic(
     fill(area, n),
     fill(a, n),
     fill(b, n),
-    zeros(n),
-    HydroDaemonDemo.PrecipitationForcing(df.time, df.P / 1000.0),
-    HydroDaemonDemo.EvaporationForcing(df.time, df.ET / 1000.0),
+    forcing,
+)
+initial = zeros(5)
+
+solver = HydroDaemonDemo.NewtonSolver(
+    linearsolver=HydroDaemonDemo.LinearSolverLU(n),
+)
+tspan = (0.0, 365.0 * DAY)
+implicit_reservoirs = HydroDaemonDemo.ImplicitHydrologicalModel(
+    cascade,
+    initial,
+    solver,
+    tspan,
+    nothing,
+    HydroDaemonDemo.FixedTimeStepper(1e-3 * DAY),
 )
 
-tstart = 0.0 * DAY
-tend = 300.0 * DAY
-Δt = 0.01 * DAY
-saveat = nothing
+HydroDaemonDemo.run!(explicit_reservoirs)
 
+explicit_reservoirs = HydroDaemonDemo.ExplicitHydrologicalModel(
+    cascade,
+    initial,
+    tspan,
+    nothing,
+    HydroDaemonDemo.FixedTimeStepper(1e-3 * DAY),
+)
 
-# Reset state
-cascade.S .= 0.0
-solver = HydroDaemonDemo.NewtonSolver(cascade, 100, 1e-6, 0.5)
-implicit_output =
-    HydroDaemonDemo.implicit_run!(cascade, solver, tstart, tend, Δt; saveat = saveat)
-
-
-cascade.S .= 0.0
-explicit_output = HydroDaemonDemo.explicit_run!(cascade, tstart, tend, Δt; saveat = saveat)
-
-using Plots
-plot(implicit_output[1, :])
-plot!(explicit_output[1, :])
+solverconfig = HydroDaemonDemo.SolverConfig(
+    Tsit5(),
+    true,
+    1e-3,
+    1e-6,
+    1.0,
+    false,
+    1e-6,
+    1e-6,
+    250,
+)
+diffeq_reservoirs = HydroDaemonDemo.DiffEqHydrologicalModel(
+    HydroDaemonDemo.reservoir_rhs!,
+    cascade,
+    initial,
+    tspan,
+    nothing,
+    solverconfig,
+)
+HydroDaemonDemo.run!(diffeq_reservoirs)

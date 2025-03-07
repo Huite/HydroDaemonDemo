@@ -1,7 +1,3 @@
-function prepare_state(p::BucketCascade, initial, forcing)
-    return ExplicitCascadeState(initial, forcing)
-end
-
 function reservoir_isoutofdomain(u, p, t)::Bool
     return any(value < 0 for value in u)
 end

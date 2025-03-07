@@ -5,16 +5,31 @@ LDLT is omitted, since the Newton Jacobian is not symmetric.
 
 abstract type LinearSolver end
 
-const Float = Float64
+struct DenseSolver <: LinearSolver
+    n::Int
+    J::Matrix{Float}
+    rhs::Vector{Float}
+    ϕ::Vector{Float}
+end
+
+function DenseSolver(n)
+    return DenseSolver(
+        n, zeros(n, n), zeros(n), zeros(n)
+    )
+end
+
+function linearsolve!(solver::DenseSolver)
+    ldiv!(solver.ϕ, solver.J, solver.rhs)
+end
 
 """Tridiagonal linear solver."""
 struct LinearSolverThomas <: LinearSolver
     n::Int
     J::Tridiagonal{Float,Vector{Float}}
-    rhs::Vector{Float64}
-    ϕ::Vector{Float64}
-    γ::Vector{Float64}
-    β::Vector{Float64}
+    rhs::Vector{Float}
+    ϕ::Vector{Float}
+    γ::Vector{Float}
+    β::Vector{Float}
 end
 
 function LinearSolverThomas(n)
@@ -36,7 +51,6 @@ function linearsolve!(solver::LinearSolverThomas)
             # This should only happen on last element of forward pass for problems
             # with zero eigenvalue. In that case the algorithmn is still stable.
             error("Beta too small!")
-            break
         end
         ϕ[j] = (rhs[j] - J.dl[j-1] * ϕ[j-1]) / β
     end
@@ -51,14 +65,14 @@ end
 struct LinearSolverLU <: LinearSolver
     n::Int
     J::Tridiagonal{Float,Vector{Float}}
-    F::LU{Float64,Tridiagonal{Float,Vector{Float}}}
-    rhs::Vector{Float64}
+    F::LU{Float,Tridiagonal{Float,Vector{Float}}}
+    rhs::Vector{Float}
     ϕ::Vector{Float}
 end
 
 function LinearSolverLU(n)
     J = Tridiagonal(zeros(n - 1), zeros(n), zeros(n - 1))
-    return LinearSolverLU(n, J, lu(M), zeros(n), zeros(n))
+    return LinearSolverLU(n, J, lu(J; check=false), zeros(n), zeros(n))
 end
 
 function linearsolve!(solver::LinearSolverLU)

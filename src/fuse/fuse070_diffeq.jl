@@ -1,7 +1,3 @@
-function prepare_state(p::Fuse070Parameters, initial, forcing)
-    return Fuse070ExplicitState(initial, forcing)
-end
-
 """
 The solver may find negative values of S, these will be rejected, but `dSdt` is
 still evaluated. The value of b or c may require a root; this requires a

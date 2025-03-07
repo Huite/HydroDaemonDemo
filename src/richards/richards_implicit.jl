@@ -19,7 +19,7 @@ struct RichardsImplicitState <: RichardsState
     residual::Vector{Float}
     residual_old::Vector{Float}
     # Forcing
-    forcing::Vector{Float64}
+    forcing::Vector{Float}
 end
 
 """
