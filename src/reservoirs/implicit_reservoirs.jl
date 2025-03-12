@@ -44,7 +44,7 @@ function converged(r, tolerance)
     return maxresidual < tolerance
 end
 
-function implicit_time_step!(A, ΔS, r, S, t, Δt, buckets, p_forcing, e_forcing, maxiter, tolerance)
+function implicit_timestep!(A, ΔS, r, S, t, Δt, buckets, p_forcing, e_forcing, maxiter, tolerance)
     p_rate = find_rate(p_forcing, t)
     e_rate = find_rate(e_forcing, t)
 
@@ -102,7 +102,7 @@ function run_implicit!(buckets, p_forcing, e_forcing, tstart, tend, Δt)
     ΔS = zeros(n_bucket)
     out = zeros(n_bucket, n_timesteps)
     for i in 1:n_timesteps
-        implicit_time_step!(A, ΔS, r, S, t, Δt, buckets, p_forcing, e_forcing, maxiter, tolerance)
+        implicit_timestep!(A, ΔS, r, S, t, Δt, buckets, p_forcing, e_forcing, maxiter, tolerance)
         out[:, i] = S
         t += Δt
     end

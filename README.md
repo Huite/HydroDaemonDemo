@@ -193,6 +193,12 @@ Finally, `DiffEqHydrologicalModel` requires `diffeq_rhs!` which is a
 trivial wrapper around `rhs!` and the parametric `DiffEqParams` type, ensuring
 we dispatch on the type of hydrological model (encoded by the state and parameter structs).
 
+Minor code duplication exists in the explicit, implicit, and
+DifferentialEquations formulation of the right-hand-side (RHS) function of the
+differential equation. A general `rhs!` function could serve all models, but at
+some cost to readability; the current setup matches the code of most
+hydrological models which generally support only one or a few formulations.
+
 ## Running a model
 
 Running a model requires:

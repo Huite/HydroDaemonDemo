@@ -4,6 +4,8 @@ using CSV
 using DataFrames
 using Dates
 using DifferentialEquations
+using Plots
+using BenchmarkTools
 ##
 
 const DAY = 24.0 * 3600.0
@@ -27,25 +29,35 @@ cascade = HydroDaemonDemo.bucket_cascade_analytic(
     forcing,
 )
 initial = zeros(5)
-
-solver = HydroDaemonDemo.NewtonSolver(
-    linearsolver=HydroDaemonDemo.LinearSolverLU(n),
-)
 tspan = (0.0, 365.0 * DAY)
-implicit_reservoirs = HydroDaemonDemo.ImplicitHydrologicalModel(
-    cascade,
-    initial,
-    solver,
-    tspan,
-    nothing,
-    HydroDaemonDemo.FixedTimeStepper(1e-3 * DAY),
-)
-
-HydroDaemonDemo.run!(explicit_reservoirs)
 
 explicit_reservoirs = HydroDaemonDemo.ExplicitHydrologicalModel(
     cascade,
     initial,
+    tspan,
+    nothing,
+    HydroDaemonDemo.FixedTimeStepper(0.001 * DAY),
+)
+HydroDaemonDemo.run!(explicit_reservoirs)
+
+plot(explicit_reservoirs.saved[1, :])
+
+# Check for allocations
+
+function reset_and_run!(model)
+    state = primary(model.state)
+    state .= 0.0
+    HydroDaemonDemo.run!(explicit_reservoirs)
+end
+@btime reset_and_run!(explicit_reservoirs)
+
+solver = HydroDaemonDemo.NewtonSolver(
+    linearsolver=HydroDaemonDemo.LinearSolverLU(n),
+)
+implicit_reservoirs = HydroDaemonDemo.ImplicitHydrologicalModel(
+    cascade,
+    initial,
+    solver,
     tspan,
     nothing,
     HydroDaemonDemo.FixedTimeStepper(1e-3 * DAY),

@@ -1,6 +1,3 @@
-abstract type Forcing end
-
-
 struct MeteorologicalForcing
     t::Vector{Float}
     precipitation::Vector{Float}

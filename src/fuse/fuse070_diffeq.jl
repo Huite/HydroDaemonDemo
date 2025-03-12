@@ -151,14 +151,3 @@ function clamp_smooth_cubic(x, lo, hi, m)
 
     return lo + y * d
 end
-
-
-x = collect(-1.0:0.01:1.0)
-y1 = clamp_smooth.(x, 0, 1, 0.3)
-y2 = clamp_smooth_cubic.(x, 0, 1, 0.3)
-
-plot(x, y1)
-plot!(x, y2)
-
-
-plot(x, y2)

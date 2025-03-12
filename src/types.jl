@@ -1,6 +1,15 @@
+abstract type HydrologicalModel end
+abstract type Forcing end
+abstract type Parameters end
 abstract type State end
+abstract type TimeStepper end
 abstract type ExplicitState <: State end
 abstract type ImplicitState <: State end
+
+
+function prepare_state(parameters, initial, forcing)
+    error("prepare_state not implemented for $(typeof(parameters))")
+end
 
 function primary(state::State)
     error("primary not implemented for $(typeof(state))")

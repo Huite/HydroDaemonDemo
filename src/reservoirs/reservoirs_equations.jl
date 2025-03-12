@@ -92,7 +92,7 @@ function dsmooth_evap_cushion(b::BucketAnalytic, S, rate, tol = 1e2)
     end
 end
 
-struct BucketCascade{B<:Bucket}
+struct BucketCascade{B<:Bucket} <: Parameters
     buckets::Vector{B}
     forcing::MeteorologicalForcing
 end
@@ -117,7 +117,7 @@ function bucket_cascade_autodiff(
     return BucketCascade(buckets, forcing)
 end
 
-struct CascadeState
+struct CascadeState <: State
     S::Vector{Float}
     Sold::Vector{Float}
     forcing::Vector{Float}

@@ -1,10 +1,4 @@
-struct ExplicitCascadeState
-    S::Vector{Float}
-    forcing::Vector{Float}
-end
-
-
-function explicit_time_step!(state::ExplicitCascadeState, parameters::BucketCascade, Δt)
+function explicit_timestep!(state::CascadeState, parameters::BucketCascade, Δt)
     S = state.S
     p_rate = state.forcing[1]
     e_rate = state.forcing[2]
@@ -34,7 +28,7 @@ function explicit_run!(cascade::BucketCascade, tstart, tend, Δt; saveat = nothi
     out[:, 1] = cascade.S
     save_index = 2
     for i = 1:n_timesteps
-        explicit_time_step!(cascade, t, Δt)
+        explicit_timestep!(cascade, t, Δt)
         if i % save_every == 0
             out[:, save_index] = cascade.S
             save_index += 1

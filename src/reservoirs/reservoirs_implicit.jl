@@ -1,8 +1,3 @@
-struct CascadeBuckets{B,F}
-    buckets::Vector{B}
-    forcing::F
-end
-
 function force!(state::CascadeState, parameters, t)
     p, e = find_rates(parameters.forcing, t)
     state.forcing[1] = p
