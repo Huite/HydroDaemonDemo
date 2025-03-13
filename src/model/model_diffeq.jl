@@ -43,7 +43,7 @@ function DiffEqHydrologicalModel(
 )
     forcing = parameters.forcing
     saveat = create_saveat(saveat, forcing, tspan)
-    state = prepare_state(parameters, copy(initial), forcing)
+    state = prepare_state(parameters, initial, forcing)
     params = DiffEqParams(buckets, state)
     tstops = unique(sort(vcat(forcing.t, saveat)))
     forcing_callback =

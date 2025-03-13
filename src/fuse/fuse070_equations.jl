@@ -22,5 +22,5 @@ function Fuse070Parameters()
 end
 
 function prepare_state(p::Fuse070Parameters, initial, forcing)
-    return Fuse070ExplicitState(initial, forcing)
+    return Fuse070ExplicitState(copy(initial), forcing)
 end

@@ -1,10 +1,11 @@
 """Backtracking line search."""
 
 abstract type LineSearch end
+const OptionalLineSearch = Union{LineSearch,Nothing}
 
-function linesearch!(_::Nothing, state, solver)::Bool
-    linearsolve!(solver)
-    update!(state, 1.0)
+function linesearch!(_::Nothing, linearsolver, state, parameters, Δt)::Bool
+    linearsolve!(linearsolver)
+    apply_update!(state, linearsolver, 1.0)
     return true
 end
 
@@ -22,7 +23,7 @@ end
 
 
 function compute_step(ls::SimpleLineSearch, _, α₂, _, _, _)
-    return max(ls.b * α₂, ls.minstep * α₂)
+    return α₂, max(ls.b * α₂, ls.minstep * α₂)
 end
 
 struct CubicLineSearch <: LineSearch
@@ -59,20 +60,20 @@ function compute_step(ls::CubicLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
     return α₂, a_cubic
 end
 
-function linesearch!(ls::LineSearch, solver, state, parameters, Δt)
+function linesearch!(ls::LineSearch, linearsolver, state, parameters, Δt)
     # α₀ = 0.0 (implicit)
     α₁ = 0.0
     α₂ = ls.a0
     # Compute the L2 norm of the residual to check for convergence
-    L2₀ = norm(state.residual)
+    L2₀ = norm(linearsolver.rhs)
     L2₁ = L2₀
 
     for _ = 1:ls.maxiter
         # Take a step
-        update!(state, α₂)
+        apply_update!(state, linearsolver, α₂)
         synchronize!(state, parameters)
-        residual!(solver, state, parameters, Δt)
-        L2₂ = norm(state.residual)
+        residual!(linearsolver, state, parameters, Δt)
+        L2₂ = norm(linearsolver.rhs)
 
         # Armijo condition for sufficient decrease
         if L2₂ <= (1 - ls.c * α₂) * L2₀

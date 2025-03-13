@@ -5,23 +5,6 @@ LDLT is omitted, since the Newton Jacobian is not symmetric.
 
 abstract type LinearSolver end
 
-struct DenseSolver <: LinearSolver
-    n::Int
-    J::Matrix{Float}
-    rhs::Vector{Float}
-    ϕ::Vector{Float}
-end
-
-function DenseSolver(n)
-    return DenseSolver(
-        n, zeros(n, n), zeros(n), zeros(n)
-    )
-end
-
-function linearsolve!(solver::DenseSolver)
-    ldiv!(solver.ϕ, solver.J, solver.rhs)
-end
-
 """Tridiagonal linear solver."""
 struct LinearSolverThomas <: LinearSolver
     n::Int
@@ -72,7 +55,7 @@ end
 
 function LinearSolverLU(n)
     J = Tridiagonal(zeros(n - 1), zeros(n), zeros(n - 1))
-    return LinearSolverLU(n, J, lu(J; check=false), zeros(n), zeros(n))
+    return LinearSolverLU(n, J, lu(J; check = false), zeros(n), zeros(n))
 end
 
 function linearsolve!(solver::LinearSolverLU)

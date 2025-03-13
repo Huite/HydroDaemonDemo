@@ -25,7 +25,7 @@ function synchronize!(state::ImplicitState, parameters)
     error("synchronize! not implemented for $(typeof(state))")
 end
 
-function jacobian!(solver, state::ImplicitState, parameters, Δt) 
+function jacobian!(solver, state::ImplicitState, parameters, Δt)
     error("jacobian! not implemented for $(typeof(state))")
 end
 

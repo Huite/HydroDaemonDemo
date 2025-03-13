@@ -16,8 +16,6 @@ struct RichardsImplicitState <: RichardsState
     # Newton-Raphson work arrays
     dk::Vector{Float}  # dk/dψ
     dS::Vector{Float}  # dS/dψ
-    residual::Vector{Float}
-    residual_old::Vector{Float}
     # Forcing
     forcing::Vector{Float}
 end
@@ -74,8 +72,8 @@ end
 """
 function rewind!(state::RichardsImplicitState)
     copyto!(state.ψ, state.ψ_old)
-    copyto!(state.θ, state.θ_old)
-    copyto!(state.residual, state.residual_old)
+    # TODO: this is overwritten anyway in a synchronize?
+    # copyto!(state.θ, state.θ_old)
 end
 
 """
@@ -83,18 +81,15 @@ end
 
     Use Δt = ∞ for steady-state.
 """
-function jacobian!(linearsolver, state::RichardsImplicitState, parameters, Δt)
+function jacobian!(linearsolver::LinearSolver, state::RichardsState, parameters, Δt)
     kΔz⁻¹ᵢ₋₁ = @view(state.kΔz⁻¹[1:end-1])
     kΔz⁻¹ᵢ₊₁ = @view(state.kΔz⁻¹[2:end])
     Δz = parameters.Δz
 
     # Calculate tridiagonal Jacobian matrix coefficients
-    dl = linearsolver.M.dl
-    d = linearsolver.M.d
-    du = linearsolver.M.du
-    @. dl = -kΔz⁻¹ᵢ₋₁[2:end]
-    @. d = stage.dS / Δt + kΔz⁻¹ᵢ₋₁ + kΔz⁻¹ᵢ₊₁
-    @. du = -kΔz⁻¹ᵢ₊₁[1:end-1]
+    @. J.dl = -kΔz⁻¹ᵢ₋₁[2:end]
+    @. J.d = state.dS / Δt + kΔz⁻¹ᵢ₋₁ + kΔz⁻¹ᵢ₊₁
+    @. J.du = -kΔz⁻¹ᵢ₊₁[1:end-1]
 
     # Add linearized conductivity terms
     Δψᵢ₋₁ = @view(state.Δψ[1:end-1])
@@ -107,10 +102,8 @@ function jacobian!(linearsolver, state::RichardsImplicitState, parameters, Δt)
     dkᵢ₋₁l = @view(dkᵢ₋₁[2:end])
     dkᵢ₊₁u = @view(dkᵢ₊₁[1:end-1])
 
-    @. dl += -dkᵢ₋₁l * (Δψᵢ₋₁l / Δz + 1.0)
-    @. d += -dkᵢ₋₁ * (Δψᵢ₋₁ / Δz + 1.0) + dkᵢ₊₁ * (Δψᵢ₊₁ / Δz + 1.0)
-    @. du += dkᵢ₊₁u * (Δψᵢ₊₁u / Δz + 1.0)
-
-    linearsolver.rhs .= state.residual
+    @. J.dl += -dkᵢ₋₁l * (Δψᵢ₋₁l / Δz + 1.0)
+    @. J.d += -dkᵢ₋₁ * (Δψᵢ₋₁ / Δz + 1.0) + dkᵢ₊₁ * (Δψᵢ₊₁ / Δz + 1.0)
+    @. J.du += dkᵢ₊₁u * (Δψᵢ₊₁u / Δz + 1.0)
     return
 end

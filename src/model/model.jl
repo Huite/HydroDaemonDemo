@@ -1,3 +1,9 @@
+"""
+Create saveat vector of times.
+
+    If nothing is provided for saveat, use the forcing times.
+    Constrain saveat times such that `tsart < tsave <= tend`.
+"""
 function create_saveat(saveat, forcing, tspan)::Vector{Float64}
     if isnothing(saveat)
         saveat = forcing.t
@@ -5,7 +11,8 @@ function create_saveat(saveat, forcing, tspan)::Vector{Float64}
 
     # Remove times beyond the end time as defined by tspan.
     tstart, tend = tspan
-    first_index = min(searchsortedfirst(saveat, tstart; lt=(a,b)->a<=b), length(saveat))
+    first_index =
+        min(searchsortedfirst(saveat, tstart; lt = (a, b) -> a <= b), length(saveat))
     last_index = min(searchsortedfirst(saveat, tend) - 1, length(saveat))
     saveat = forcing.t[first_index:last_index]
     if isempty(saveat) || saveat[end] != tend

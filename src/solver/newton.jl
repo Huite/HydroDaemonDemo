@@ -10,7 +10,7 @@ Requires a state type with the following associated methods:
 * copy_state!
 
 """
-struct NewtonSolver{LS<:LinearSolver,BT<:Union{LineSearch,Nothing},PT}
+struct NewtonSolver{LS<:LinearSolver,BT<:OptionalLineSearch,PT<:OptionalPTC}
     linearsolver::LS
     backtracking::BT
     pseudotransient::PT
@@ -21,9 +21,15 @@ struct NewtonSolver{LS<:LinearSolver,BT<:Union{LineSearch,Nothing},PT}
         backtracking::BT = nothing,
         pseudotransient::PT = nothing,
         maxiter::Int = 100,
-        tolerance::Float64 = 1e-6
-    ) where {LS<:LinearSolver, BT<:Union{LineSearch,Nothing}, PT}
-        return new{LS, BT, PT}(linearsolver, backtracking, pseudotransient, maxiter, tolerance)
+        tolerance::Float64 = 1e-6,
+    ) where {LS<:LinearSolver,BT<:OptionalLineSearch,PT<:OptionalPTC}
+        return new{LS,BT,PT}(
+            linearsolver,
+            backtracking,
+            pseudotransient,
+            maxiter,
+            tolerance,
+        )
     end
 end
 
@@ -32,35 +38,72 @@ function converged(newton::NewtonSolver)
     return maxresidual < newton.tolerance
 end
 
-function solve!(newton::NewtonSolver, state, parameters, Δt)
+function solve!(newton::NewtonSolver{LS,BT,Nothing}, state, parameters, Δt) where {LS,BT}
     # Maintain old state for time stepping.
     copy_state!(state)
     # Synchronize dependent variables.
     synchronize!(state, parameters)
 
-    ptcΔt = initial_pseudotimestep(newton.pseudotransient, state)
     for i = 1:newton.maxiter
         # Formulate and compute the residual.
-        residual!(newton, state, parameters, Δt)
         # Check the residual for convergence.
+        residual!(newton.linearsolver, state, parameters, Δt)
         if converged(newton)
             return true, i
         end
-        # Linearize and solve.
-        jacobian!(state, newton.linearsolver, parameters, Δt)
+        jacobian!(newton.linearsolver, state, parameters, Δt)
+        linearsolve!(newton.linearsolver)
+        apply_update!(state, newton.linearsolver, 1.0)
+        #linesearch!(newton.backtracking, newton.linearsolver, state, parameters, Δt)
+        synchronize!(state, parameters)
+    end
+    return false, newton.maxiter
+end
 
-        ptc_succes = False
-        while !ptc_succes
-            ptcΔt = ptc!(newton.pseudotransient, state)
-            linearsolve!(newton.linearsolver)
-            # Find and apply optimized update.
-            # TODO: if no PTC, linesearch can be also be checked for plausibility.
-            linesearch!(newton, newton.backtracking, state, parameters, Δt)
-            ptc_succes = check_ptc!(newton.pseudotransient, state)
+function pseudo_timestep!(newton, state)
+    ptc = newton.pseudotransient
+    apply_ptc!(ptc.method, newton.linearsolver, ptc.stepselection.Δt)
+    linearsolve!(newton.linearsolver)
+    linesearch!(newton.backtracking, newton.linearsolver, state, parameters, Δt)
+    ptc_success = check_ptc!(newton.pseudotransient, state)
+    return ptc_success
+end
+
+function solve!(
+    newton::NewtonSolver{LS,BT,PTC},
+    state,
+    parameters,
+    Δt,
+) where {LS,BT,PTC<:PseudoTransientContinuation}
+    # Maintain old state for time stepping.
+    copy_state!(state)
+    # Synchronize dependent variables.
+    synchronize!(state, parameters)
+
+    # Initial step
+    firststepsize!(newton.pseudotransient.stepselection)
+
+    for i = 1:newton.maxiter
+        # Formulate and compute the residual.
+        # Check the residual for convergence.
+        residual!(newton.linearsolver, state, parameters, Δt)
+        if converged(newton)
+            return true, i
+        end
+        jacobian!(newton.linearsolver, state, parameters, Δt)
+
+        # Keep trying smaller time steps until we get a plausible answer.
+        # Generally needs a single iteration.
+        ptc_success = false
+        while !ptc_success
+            ptc_success = pseudo_timestep!(newton, state)
         end
 
         # Synchronize dependent variables.
         synchronize!(state, parameters)
+
+        # Compute new step size based on residual evolution.
+        stepsize!(newton.pseudotransient.stepselection, state, newton.linearsolver.rhs)
     end
     return false, i
 end

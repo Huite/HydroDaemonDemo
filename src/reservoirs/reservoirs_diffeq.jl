@@ -1,8 +1,8 @@
-function isoutofdomain(u, p::DiffEqParams{CascadeState, BucketCascade}, t)::Bool
+function isoutofdomain(u, p::DiffEqParams{CascadeState,BucketCascade}, t)::Bool
     return any(value < 0 for value in u)
 end
 
-function rhs!(du, u, p::DiffEqParams{CascadeState, BucketCascade}, t)
+function rhs!(du, u, p::DiffEqParams{CascadeState,BucketCascade}, t)
     ΔS = du
     S = u
     p_rate = p.state.forcing[1]

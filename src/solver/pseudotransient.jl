@@ -17,42 +17,51 @@ end
 
 # Note: initialize oldnorm with residual of y0.
 struct SwitchedEvolutionRelaxation <: PTCStepSelection
-    Δt::Vector{Float}
+    Δt::Vector{Float}  # one for each state
+    Δt0::Float
+    Δtmin::Float
     Δtmax::Float
     oldnorm::Vector{Float}  # for mutability
 end
 
-
 # Note: Initialize prevy and preprevy with initial state.
 # The third iteration will be meaningful.
 struct TemporalTruncationError <: PTCStepSelection
-    Δt::Vector{Float}
-    boundmin::Float
-    boundmax::Float
+    Δt::Vector{Float}  # one for each state
     τ::Float
+    Δt0::Float
+    Δtmin::Float
+    Δtmax::Float
     Δtprev::Vector{Float}
     preprevy::Vector{Float}
     prevy::Vector{Float}
 end
 
 struct PseudoTransientContinuation{S,M}
-    Δt0::Float
-    Δtmin::Float
-    Δtmax::Float
     boundmin::Float
     boundmax::Float
     stepselection::S
     method::M
 end
 
-function stepsize!(ser::SwitchedEvolutionRelaxation, state)
-    newnorm = norm(state.residual)
-    ser.Δt .*= ser.oldnorm / newnorm
-    ser.oldnorm = newnorm
-    return Δtnew
+const OptionalPTC =
+    Union{PseudoTransientContinuation{S,M},Nothing} where {S<:PTCStepSelection,M<:PTCMethod}
+
+
+function firststepsize!(stepselection::PTCStepSelection)
+    stepselection.Δt .= stepselection.Δt0
+    return
 end
 
-function stepsize!(tte::TemporalTruncationError, state)
+function stepsize!(ser::SwitchedEvolutionRelaxation, state, residual)
+    newnorm = norm(residual)
+    ser.Δt .*= ser.oldnorm / newnorm
+    ser.oldnorm = newnorm
+    clamp!.(ser.Δt, ser.Δtmin, ser.Δtmax)
+    return
+end
+
+function stepsize!(tte::TemporalTruncationError, state, residual)
     y = primary(state)
     for i in eachindex(y)
         # Estimate d²y/dt²
@@ -68,17 +77,8 @@ function stepsize!(tte::TemporalTruncationError, state)
     end
     tte.preprevy .= tte.prevy
     tte.prevy .= y
+    clamp!.(tte.Δt, tte.Δtmin, tte.Δtmax)
     return
-end
-
-function initial_pseudotimestep(ptc::PseudoTransientContinuation, state)
-    return ptc.Δt0
-end
-
-function ptc!(ptc::PseudoTransientContinuation, linearsolver, state)
-    stepsize!(ptc.stepselection, state)
-    ptc.stepselection.Δt .= min.(ptc.stepselection.Δt, ptc.Δtmax)
-    apply_ptc!(ptc.method, linearsolver, ptc.stepselection.Δt)
 end
 
 """Check whether any value falls outside of plausible bounds, if so: reject and halve the ptc step."""
@@ -88,20 +88,7 @@ function check_ptc(ptc::PseudoTransientContinuation, state)
         if any(Δt < ptc.Δtmin for Δt in ptc.stepselection.Δt)
             error("PTC failed to find a suitable step size")
         end
-        return False
+        return false
     end
-    return True
-end
-
-# Use Nothing for no-op.
-function initial_pseudotimestep(_::Nothing, state)
-    return Inf
-end
-
-function ptc!(_::Nothing, linearsolver, state, ptcΔt)
-    return ptcΔt
-end
-
-function check_ptc(_::Nothing, state, ptcΔt)
-    return True, ptcΔt
+    return true
 end

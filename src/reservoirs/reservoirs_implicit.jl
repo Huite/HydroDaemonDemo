@@ -1,11 +1,9 @@
-function force!(state::CascadeState, parameters, t)
-    p, e = find_rates(parameters.forcing, t)
-    state.forcing[1] = p
-    state.forcing[2] = e
+function synchronize!(state::CascadeState, parameters)
     return
 end
 
-function synchronize!(state::CascadeState, parameters)
+function apply_update!(state::CascadeState, linearsolver, a)
+    @. state.S += a * linearsolver.ϕ
     return
 end
 
@@ -19,43 +17,50 @@ function rewind!(state::CascadeState)
     return
 end
 
-function residual!(solver, state::CascadeState, parameters::BucketCascade, Δt)
+function residual!(
+    linearsolver::LinearSolver,
+    state::CascadeState,
+    cascade::BucketCascade,
+    Δt,
+)
     S = state.S
     Sold = state.Sold
-    r = solver.linearsolver.rhs
-    for (i, bucket) in enumerate(parameters.buckets)
+    r = linearsolver.rhs
+    p_rate = state.forcing[1]
+    e_rate = state.forcing[2]
+    q_upstream = 0.0
+    for (i, bucket) in enumerate(cascade.buckets)
         # Right-hand-side: water balance residual
-        r[i] = (
+        q = smooth_flow(bucket, S[i])
+        r[i] = -(
             precipitation(bucket, p_rate) - smooth_evap_cushion(bucket, S[i], e_rate)  # Use smooth version
-            -
-            smooth_flow(bucket, S[i])  # Use smooth version
-            - (S[i] - Sold[i]) / Δt
+            - q + q_upstream - (S[i] - Sold[i]) / Δt
         )
+        q_upstream = q
     end
     return
 end
 
-function jacobian!(solver, state::CascadeState, parameters::BucketCascade, Δt)
+function jacobian!(
+    linearsolver::LinearSolver,
+    state::CascadeState,
+    cascade::BucketCascade,
+    Δt,
+)
     S = state.S
-    J = solver.linearsolver.J
-    r = solver.linearsolver.rhs
+    J = linearsolver.J
+    e_rate = state.forcing[2]
+    dq_upstream = 0.0
     for (i, bucket) in enumerate(cascade.buckets)
         # Jacobian terms
-        # Lower diagonal (element at row i, column i-1)
+        # Lower diagonal J[i, i-1]
         if i > 1
-            up = cascade.buckets[i-1]
-            r[i] += smooth_flow(up, S[i-1])  # Use smooth version
-            J.dl[i-1] = dsmooth_flow(up, S[i-1])  # Use smooth derivative
+            J.dl[i-1] = dq_upstream
         end
 
-        # Diagonal (element at row i, column i)
-        J.d[i] =
-            -dsmooth_flow(bucket, S[i]) - dsmooth_evap_cushion(bucket, S[i], e_rate) -
-            1.0 / Δt  # Include evaporation derivative
-
-        # Upper diagonal (element at row i, column i+1)
-        if i < n_bucket
-            J.du[i] = 0
-        end
+        # Diagonal: J[i, i]
+        dq = dsmooth_flow(bucket, S[i])
+        J.d[i] = -dq - dsmooth_evap_cushion(bucket, S[i], e_rate) - 1.0 / Δt
+        dq_upstream = dq
     end
 end

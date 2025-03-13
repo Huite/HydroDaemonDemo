@@ -24,6 +24,8 @@ include("model/model.jl")
 
 # Cascade of bucket reservoirs
 include("reservoirs/reservoirs_equations.jl")
+include("reservoirs/reservoirs_parameters.jl")
+include("reservoirs/reservoirs_state.jl")
 include("reservoirs/reservoirs_explicit.jl")
 include("reservoirs/reservoirs_implicit.jl")
 include("reservoirs/reservoirs_diffeq.jl")

@@ -1,4 +1,4 @@
-struct ExplicitHydrologicalModel{P<:Parameters, S<:State, T<:TimeStepper} <: HydrologicalModel
+struct ExplicitHydrologicalModel{P<:Parameters,S<:State,T<:TimeStepper} <: HydrologicalModel
     parameters::P  # Physical parameters
     state::S  # State and dependent variables
     tspan::Tuple{Float,Float}
@@ -12,22 +12,15 @@ function ExplicitHydrologicalModel(
     initial::Vector{Float},
     tspan,
     saveat,
-    timestepper,
+    timestepper::TimeStepper,
 )
-    state = prepare_state(parameters, copy(initial), parameters.forcing)
-    saveat = create_saveat(saveat, parameters.forcing, tspan)    
-    nstate = length(primary(state)) 
+    state = prepare_state(parameters, initial, parameters.forcing)
+    saveat = create_saveat(saveat, parameters.forcing, tspan)
+    nstate = length(primary(state))
     nsave = length(saveat) + 1
     saved = zeros(nstate, nsave)
 
-    return ExplicitHydrologicalModel(
-        parameters,
-        state,
-        tspan,
-        saveat,
-        saved,
-        timestepper,
-    )
+    return ExplicitHydrologicalModel(parameters, state, tspan, saveat, saved, timestepper)
 end
 
 """
