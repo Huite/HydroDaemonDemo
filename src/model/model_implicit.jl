@@ -3,12 +3,12 @@ struct ImplicitHydrologicalModel{
     S<:State,
     T<:TimeStepper,
     LS<:LinearSolver,
-    BT<:OptionalLineSearch,
+    R<:Relaxation,
     PT<:OptionalPTC,
 } <: HydrologicalModel
     parameters::P  # Physical parameters
     state::S  # State and dependent variables
-    solver::NewtonSolver{LS,BT,PT}  # Non-linear Newton-Raphson solver
+    solver::NewtonSolver{LS,R,PT}  # Non-linear Newton-Raphson solver
     tspan::Tuple{Float,Float}
     saveat::Vector{Float}  # frequency
     saved::Matrix{Float}  # output

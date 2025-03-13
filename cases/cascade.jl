@@ -1,4 +1,5 @@
 ##
+using Revise
 using HydroDaemonDemo
 using CSV
 using DataFrames
@@ -17,8 +18,7 @@ b = 1.5
 
 df = CSV.read("cases/forcing.csv", DataFrame)
 df.time = Dates.toms.(df.Date - df.Date[1]) / 1000.0
-forcing =
-    HydroDaemonDemo.MeteorologicalForcing(df.time, df.P / 1000.0, df.ET / 1000.0)
+forcing = HydroDaemonDemo.MeteorologicalForcing(df.time, df.P / 1000.0, df.ET / 1000.0)
 cascade =
     HydroDaemonDemo.bucket_cascade_analytic(fill(area, n), fill(a, n), fill(b, n), forcing)
 initial = zeros(5)
@@ -37,7 +37,10 @@ HydroDaemonDemo.run!(explicit_reservoirs)
 
 ##
 
-solver = HydroDaemonDemo.NewtonSolver(linearsolver = HydroDaemonDemo.LinearSolverLU(n))
+solver = HydroDaemonDemo.NewtonSolver(
+    HydroDaemonDemo.LinearSolverLU(n),
+    relax = HydroDaemonDemo.ScalarRelaxation(0.5),
+)
 implicit_reservoirs = HydroDaemonDemo.ImplicitHydrologicalModel(
     cascade,
     initial,
@@ -45,6 +48,7 @@ implicit_reservoirs = HydroDaemonDemo.ImplicitHydrologicalModel(
     tspan,
     nothing,
     HydroDaemonDemo.AdaptiveTimeStepper(1.0 * DAY),
+    #HydroDaemonDemo.FixedTimeStepper(1.0e-2 * DAY),
 )
 
 ##

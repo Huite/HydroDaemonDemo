@@ -1,11 +1,23 @@
-"""Backtracking line search."""
+abstract type Relaxation end
+abstract type LineSearch <: Relaxation end
 
-abstract type LineSearch end
-const OptionalLineSearch = Union{LineSearch,Nothing}
+struct ScalarRelaxation <: Relaxation
+    relax::Float
+    function ScalarRelaxation(relax::Float)
+        0 <= relax < 1 ||
+            throw(ArgumentError("Relaxation parameter must be in [0,1): got $relax"))
+        new(relax)
+    end
+end
 
-function linesearch!(_::Nothing, linearsolver, state, parameters, Δt)::Bool
-    linearsolve!(linearsolver)
-    apply_update!(state, linearsolver, 1.0)
+function newton_step!(
+    relaxation::ScalarRelaxation,
+    linearsolver,
+    state,
+    parameters,
+    Δt,
+)::Bool
+    apply_update!(state, linearsolver, 1.0 - relaxation.relax)
     return true
 end
 
@@ -35,7 +47,7 @@ struct CubicLineSearch <: LineSearch
 end
 
 function CubicLineSearch(; a0 = 0.5, c = 1e-4, maxiter = 5, low = 0.1, high = 0.5)
-    return QuadraticLineSearch(a0, c, maxiter, low, high)
+    return CubicLineSearch(a0, c, maxiter, low, high)
 end
 
 function compute_step(ls::CubicLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
@@ -60,7 +72,7 @@ function compute_step(ls::CubicLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
     return α₂, a_cubic
 end
 
-function linesearch!(ls::LineSearch, linearsolver, state, parameters, Δt)
+function newton_step!(ls::LineSearch, linearsolver, state, parameters, Δt)
     # α₀ = 0.0 (implicit)
     α₁ = 0.0
     α₂ = ls.a0

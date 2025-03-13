@@ -18,13 +18,13 @@ struct AdaptiveTimeStepper <: TimeStepper
     failure::Float
     function AdaptiveTimeStepper(
         Δt0;
-        n_increase=5,
-        increase=1.25,
-        n_decrease=15,
-        decrease=0.9,
-        failure=0.5,
+        n_increase = 5,
+        increase = 1.25,
+        n_decrease = 15,
+        decrease = 0.9,
+        failure = 0.5,
     )
-    return new(Δt0, n_increase, increase, n_decrease, decrease, failure)
+        return new(Δt0, n_increase, increase, n_decrease, decrease, failure)
     end
 end
 
