@@ -31,7 +31,7 @@ struct SimpleLineSearch <: LineSearch
     maxiter::Int
 end
 
-function SimpleLineSearch(; a0 = 1.0, b = 0.5, c = 1e-4, minstep = 1e-10, maxiter = 5)
+function SimpleLineSearch(; a0 = 1.0, b = 0.5, c = 1e-4, minstep = 0.01, maxiter = 5)
     return SimpleLineSearch(a0, b, c, minstep, maxiter)
 end
 
@@ -39,6 +39,99 @@ end
 function compute_step(ls::SimpleLineSearch, _, α₂, _, _, _)
     return α₂, max(ls.b * α₂, ls.minstep * α₂)
 end
+
+struct QuadraticLineSearch <: LineSearch
+    a0::Float  # initial step size
+    c::Float  # Sufficient decrease for Armijo condition
+    maxiter::Int
+    low::Float  # interpolation bounds
+    high::Float  # interpolation bounds
+end
+
+function QuadraticLineSearch(; a0 = 1.0, c = 1e-4, maxiter = 5, low = 0.01, high = 0.9)
+    return QuadraticLineSearch(a0, c, maxiter, low, high)
+end
+
+function quadratic_step(α₂, L2₀, L2₂)
+    # Fit y = f(x) = ax² + bx + c
+    # Then find its minimum: -b/2a
+    #
+    # f'(x) = 2ax + b, hence:
+    # b = f'(0)
+    # c = f(0)
+    # a = (f(x₁) - bx₁ - c) / x₁²
+    #
+    # Hence: 
+    # -b / 2a = f'(0) / (2 (f(x₁) - bx₁ - c) / x₁²) = 
+    # -b / 2a = (f'(0) * x₁²) / 2 (f(x₁) - bx₁ - c)
+    #
+    # Note that for the L2 norm specifically: b = -L2₀
+
+    grad₀ = -L2₀
+    y1 = L2₂
+    x1 = α₂
+    c = L2₀
+    b = grad₀
+    newstep = -b * (x1^2) / (2 * y1 - b * x1 - c)
+    return newstep
+end
+
+function cubic_step(α₁, α₂, L2₀, L2₁, L2₂)
+    # Fit y = f(x) = ax³ + bx² + cx + d
+    # Then find its minimum by solving f'(x) = 0
+    # f'(x) = 3ax² + 2bx + c = 0
+    #
+    # We use function values at x = 0, x = α₁, x = α₂
+    # And the derivative at x = 0
+    #
+    # Known values:
+    # f(0) = L2₀ = d
+    # f'(0) = -L2₀ = c
+    # f(α₁) = L2₁
+    # f(α₂) = L2₂
+
+
+    # Initial slope at x = 0 (specifically for L2 norm)
+    c = -L2₀
+
+    # Compute the differences between actual and linear approximation
+    diff₁ = L2₁ - L2₀ - c * α₁
+    diff₂ = L2₂ - L2₀ - c * α₂
+
+    # Calculate cubic coefficients using the differences
+    # This matrix solution is derived from the system of equations:
+    # a(α₁)³ + b(α₁)² = diff₁
+    # a(α₂)³ + b(α₂)² = diff₂
+    div = 1.0 / (α₁^2 * α₂^2 * (α₂ - α₁))
+    a = (α₁^2 * diff₂ - α₂^2 * diff₁) * div
+    b = (-α₁^3 * diff₂ + α₂^3 * diff₁) * div
+
+    # Find the minimizer of the cubic
+    # If coefficient of x³ is effectively zero, fall back to quadratic model
+    if abs(a) < eps(Float)
+        # For a quadratic model: minimum at x = -c/(2b)
+        newstep = -c / (2 * b)
+    else
+        # Solving the quadratic: 3ax² + 2bx + c = 0
+        # Using the quadratic formula: x = (-2b ± √(4b² - 4*3a*c))/(2*3a)
+        # Simplified: x = (-b ± √(b² - 3a*c))/(3a)
+        # We take the formula that gives us a positive step
+        d = max(b^2 - 3 * a * c, 0.0)
+        # Avoids catastrophic cancellation when b and √d are close
+        newstep = -c / (b * sqrt(d))
+    end
+    return newstep
+end
+
+function compute_step(ls::QuadraticLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
+    newstep = quadratic_step(α₂, L2₀, L2₂)
+    if isnan(newstep)
+        newstep = α₂ * ls.high
+    end
+    newstep = clamp(newstep, α₂ * ls.low, α₂ * ls.high)
+    return α₂, newstep
+end
+
 
 struct CubicLineSearch <: LineSearch
     a0::Float  # initial step size
@@ -48,55 +141,26 @@ struct CubicLineSearch <: LineSearch
     high::Float  # interpolation bounds
 end
 
-function CubicLineSearch(; a0 = 1.0, c = 1e-4, maxiter = 5, low = 0.1, high = 0.5)
+function CubicLineSearch(; a0 = 1.0, c = 1e-4, maxiter = 5, low = 0.01, high = 0.9)
     return CubicLineSearch(a0, c, maxiter, low, high)
 end
 
 function compute_step(ls::CubicLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
-    grad₀ = -L2₀  # specifically for the L2-norm
-
-    div = 1.0 / (α₁^2 * α₂^2 * (α₂ - α₁))
-    a = (α₁^2 * (L2₂ - L2₀ - grad₀ * α₂) - α₂^2 * (L2₁ - L2₀ - grad₀ * α₁)) * div
-    b = (-α₁^3 * (L2₂ - L2₀ - grad₀ * α₂) + α₂^3 * (L2₁ - L2₀ - grad₀ * α₁)) * div
-
-    # Fall back to quadratic on first iteration.
-    if abs(a) < eps(Float)
-        a_cubic = grad₀ / (2 * b)
+    if isapprox(L2₀, L2₁)
+        # Will trigger first iteration
+        newstep = quadratic_step(α₂, L2₀, L2₂)
     else
-        # discriminant
-        d = max(b^2 - 3 * a * grad₀, 0.0)
-        # quadratic equation root
-        a_cubic = (-b + sqrt(d)) / (3 * a)
+        newstep = cubic_step(α₁, α₂, L2₀, L2₁, L2₂)
     end
 
-    # Bound the step size
-    a_cubic = clamp(a_cubic, α₂ * ls.low, α₂ * ls.high)
-    return α₂, a_cubic
-end
-
-function compute_step(ls::CubicLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
-    grad₀ = -L2₀  # specifically for the L2-norm
-    
-    diff₁ = L2₁ - L2₀ - grad₀ * α₁
-    diff₂ = L2₂ - L2₀ - grad₀ * α₂
-    
-    # Calculate cubic coefficients
-    div = 1.0 / (α₁^2 * α₂^2 * (α₂ - α₁))
-    a = (α₁^2 * diff₂ - α₂^2 * diff₁) * div
-    b = (-α₁^3 * diff₂ + α₂^3 * diff₁) * div
-    
-    if abs(a) < eps(Float)
-        # When a ≈ 0, use quadratic model
-        a_cubic = -grad₀ / (2 * b)
-    else
-        d = max(b^2 - 3 * a * grad₀, 0.0)
-        # Stability; instead of: a_cubic = (-b + sqrt(d)) / (3 * a)
-        a_cubic = -grad₀ / (b + sign(b) * sqrt(d)) 
+    # Check for NaN, and bound the step size within low and high multipliers
+    # of the current step.
+    if isnan(newstep)
+        newstep = α₂ * ls.high
     end
-    
-    # Bound the step size
-    a_cubic = clamp(a_cubic, α₂ * ls.low, α₂ * ls.high)
-    return α₂, a_cubic
+    newstep = clamp(newstep, α₂ * ls.low, α₂ * ls.high)
+
+    return α₂, newstep
 end
 
 function newton_step!(ls::LineSearch, linearsolver, state, parameters, Δt)
@@ -122,8 +186,8 @@ function newton_step!(ls::LineSearch, linearsolver, state, parameters, Δt)
             return true
         end
         if L2₂ < L2best
-          L2best = L2₂
-          αbest = α₂
+            L2best = L2₂
+            αbest = α₂
         end
 
         # Undo the step by applying a NEGATIVE update
