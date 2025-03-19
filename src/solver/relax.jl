@@ -18,6 +18,8 @@ function newton_step!(
     Δt,
 )::Bool
     apply_update!(state, linearsolver, 1.0 - relaxation.relax)
+    synchronize!(state, parameters)
+    residual!(linearsolver, state, parameters, Δt)
     return true
 end
 
@@ -46,7 +48,7 @@ struct CubicLineSearch <: LineSearch
     high::Float  # interpolation bounds
 end
 
-function CubicLineSearch(; a0 = 0.5, c = 1e-4, maxiter = 5, low = 0.1, high = 0.5)
+function CubicLineSearch(; a0 = 1.0, c = 1e-4, maxiter = 5, low = 0.1, high = 0.5)
     return CubicLineSearch(a0, c, maxiter, low, high)
 end
 
@@ -80,6 +82,9 @@ function newton_step!(ls::LineSearch, linearsolver, state, parameters, Δt)
     L2₀ = norm(linearsolver.rhs)
     L2₁ = L2₀
 
+    L2best = L2₁
+    αbest = α₂
+
     for _ = 1:ls.maxiter
         # Take a step
         apply_update!(state, linearsolver, α₂)
@@ -88,14 +93,24 @@ function newton_step!(ls::LineSearch, linearsolver, state, parameters, Δt)
         L2₂ = norm(linearsolver.rhs)
 
         # Armijo condition for sufficient decrease
-        if L2₂ <= (1 - ls.c * α₂) * L2₀
+        if L2₂ <= ((1 - ls.c * α₂) * L2₀)
             return true
         end
+        if L2₂ < L2best
+          L2best = L2₂
+          αbest = α₂
+        end
+
+        # Undo the step by applying a NEGATIVE update
+        apply_update!(state, linearsolver, -α₂)
 
         # Compute new step size
         α₁, α₂ = compute_step(ls, α₁, α₂, L2₀, L2₁, L2₂)
         L2₁ = L2₂
     end
-    # Achieved maximum iterations
+    # Achieved maximum iterations, use αbest.
+    apply_update!(state, linearsolver, αbest)
+    synchronize!(state, parameters)
+    residual!(linearsolver, state, parameters, Δt)
     return false
 end

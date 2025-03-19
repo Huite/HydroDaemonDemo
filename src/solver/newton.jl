@@ -38,18 +38,19 @@ function solve!(newton::NewtonSolver{LS,R,Nothing}, state, parameters, Δt) wher
     copy_state!(state)
     # Synchronize dependent variables.
     synchronize!(state, parameters)
+    # Compute initial residual
+    residual!(newton.linearsolver, state, parameters, Δt)
 
     for i = 1:newton.maxiter
-        # Formulate and compute the residual.
-        # Check the residual for convergence.
-        residual!(newton.linearsolver, state, parameters, Δt)
+        # Check the residual immediately for convergence.
         if converged(newton)
             return true, i
         end
         jacobian!(newton.linearsolver, state, parameters, Δt)
         linearsolve!(newton.linearsolver)
+        # The newton step will update the state, synchronize, and recompute
+        # residual.
         newton_step!(newton.relax, newton.linearsolver, state, parameters, Δt)
-        synchronize!(state, parameters)
     end
     return false, newton.maxiter
 end
@@ -73,6 +74,8 @@ function solve!(
     copy_state!(state)
     # Synchronize dependent variables.
     synchronize!(state, parameters)
+    # Compute initial residual
+    residual!(newton.linearsolver, state, parameters, Δt)
 
     # Initial step
     firststepsize!(newton.pseudotransient.stepselection)
@@ -80,7 +83,6 @@ function solve!(
     for i = 1:newton.maxiter
         # Formulate and compute the residual.
         # Check the residual for convergence.
-        residual!(newton.linearsolver, state, parameters, Δt)
         if converged(newton)
             return true, i
         end
@@ -92,9 +94,6 @@ function solve!(
         while !ptc_success
             ptc_success = pseudotimestep!(newton, state)
         end
-
-        # Synchronize dependent variables.
-        synchronize!(state, parameters)
 
         # Compute new step size based on residual evolution.
         stepsize!(newton.pseudotransient.stepselection, state, newton.linearsolver.rhs)
