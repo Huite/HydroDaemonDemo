@@ -74,6 +74,31 @@ function compute_step(ls::CubicLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
     return α₂, a_cubic
 end
 
+function compute_step(ls::CubicLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
+    grad₀ = -L2₀  # specifically for the L2-norm
+    
+    diff₁ = L2₁ - L2₀ - grad₀ * α₁
+    diff₂ = L2₂ - L2₀ - grad₀ * α₂
+    
+    # Calculate cubic coefficients
+    div = 1.0 / (α₁^2 * α₂^2 * (α₂ - α₁))
+    a = (α₁^2 * diff₂ - α₂^2 * diff₁) * div
+    b = (-α₁^3 * diff₂ + α₂^3 * diff₁) * div
+    
+    if abs(a) < eps(Float)
+        # When a ≈ 0, use quadratic model
+        a_cubic = -grad₀ / (2 * b)
+    else
+        d = max(b^2 - 3 * a * grad₀, 0.0)
+        # Stability; instead of: a_cubic = (-b + sqrt(d)) / (3 * a)
+        a_cubic = -grad₀ / (b + sign(b) * sqrt(d)) 
+    end
+    
+    # Bound the step size
+    a_cubic = clamp(a_cubic, α₂ * ls.low, α₂ * ls.high)
+    return α₂, a_cubic
+end
+
 function newton_step!(ls::LineSearch, linearsolver, state, parameters, Δt)
     # α₀ = 0.0 (implicit)
     α₁ = 0.0
