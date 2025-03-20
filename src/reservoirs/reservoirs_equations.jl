@@ -80,7 +80,7 @@ end
 
 function smooth_evap_cushion(b::Bucket, S, rate, tol = 1e2)
     # Only activate evaporation when S is sufficiently above zero
-    activation = max(0.0, min(1.0, S / tol))
+    activation = max_smooth(0.0, min(1.0, S / tol), m)
     return b.area * rate * activation
 end
 

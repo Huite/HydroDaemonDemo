@@ -1,3 +1,13 @@
+function dclamp(x, lo, hi)
+    if x <= lo
+        return 0.0
+    elseif x < hi
+        return 1.0
+    else
+        return 0.0
+    end
+end
+
 function min_smooth(a, b, m)
     return 0.5 * (a + b - √((a - b)^2 + m))
 end
@@ -97,6 +107,34 @@ function sigmoid_activation(S, Smax, ω)
     return 1 - 1 / (1 + exp((S - Smax) / ω))
 end
 
+function dsigmoid_activation(S, Smax, ω)
+    exp_term = exp((S - Smax) / ω)
+    return exp_term / (ω * (1 + exp_term)^2)
+end
+
 function activation(S, Smax)
     return max(0.0, Float(S > Smax))
+end
+
+function dactivation(S, Smax)
+    return 0.0
+end
+
+function read_forcing(path)
+    df = CSV.read(path, DataFrame)
+    df.time = Dates.toms.(df.Date - df.Date[1]) / 1000.0
+    return MeteorologicalForcing(df.time, df.P / 1000.0, df.ET / 1000.0)
+end
+
+function smooth_max(x, threshold = 0.0, smoothing = 0.01)
+    if x <= threshold
+        return 0.0
+    elseif x < threshold + smoothing
+        # Smooth transition between threshold and threshold+smoothing
+        # Using a cubic polynomial with zero value and zero derivative at threshold
+        t = (x - threshold) / smoothing
+        return (x - threshold) * t^2 * (3.0 - 2.0 * t)
+    else
+        return x - threshold
+    end
 end

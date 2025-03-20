@@ -59,6 +59,7 @@ function LinearSolverLU(n)
 end
 
 function linearsolve!(solver::LinearSolverLU)
+    # TODO: seems like this allocates
     lu!(solver.F, solver.J)
     # Inplace for Tridiagonal since Julia 1.11.
     # Note: stores result in B, overwrites diagonals.

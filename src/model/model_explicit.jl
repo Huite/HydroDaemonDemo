@@ -14,7 +14,7 @@ function ExplicitHydrologicalModel(
     saveat,
     timestepper::TimeStepper,
 )
-    state = prepare_state(parameters, initial, parameters.forcing)
+    state = prepare_state(parameters, initial)
     saveat = create_saveat(saveat, parameters.forcing, tspan)
     nstate = length(primary(state))
     nsave = length(saveat) + 1

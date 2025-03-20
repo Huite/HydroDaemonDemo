@@ -33,8 +33,7 @@ function residual!(
         # Right-hand-side: water balance residual
         q = smooth_flow(bucket, S[i])
         r[i] = -(
-            precipitation(bucket, p_rate) - smooth_evap_cushion(bucket, S[i], e_rate)  # Use smooth version
-            - q + q_upstream - (S[i] - Sold[i]) / Δt
+            precipitation(bucket, p_rate) - smooth_evaporation(bucket, S[i], e_rate) - q + q_upstream - (S[i] - Sold[i]) / Δt
         )
         q_upstream = q
     end
@@ -60,7 +59,7 @@ function jacobian!(
 
         # Diagonal: J[i, i]
         dq = dsmooth_flow(bucket, S[i])
-        J.d[i] = -dq - dsmooth_evap_cushion(bucket, S[i], e_rate) - 1.0 / Δt
+        J.d[i] = -dq - dsmooth_evaporation(bucket, S[i], e_rate) - 1.0 / Δt
         dq_upstream = dq
     end
 end

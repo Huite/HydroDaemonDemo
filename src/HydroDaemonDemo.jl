@@ -3,6 +3,10 @@ module HydroDaemonDemo
 using Revise
 using LinearAlgebra
 using DifferentialEquations
+# For some basic IO
+using CSV
+using DataFrames
+using Dates
 
 const Float = Float64
 
@@ -29,5 +33,19 @@ include("reservoirs/reservoirs_state.jl")
 include("reservoirs/reservoirs_explicit.jl")
 include("reservoirs/reservoirs_implicit.jl")
 include("reservoirs/reservoirs_diffeq.jl")
+
+# FUSE-070 conceptual model
+include("fuse/fuse070_parameters.jl")
+include("fuse/fuse070_state.jl")
+include("fuse/fuse070_explicit.jl")
+include("fuse/fuse070_implicit.jl")
+include("fuse/fuse070_diffeq.jl")
+
+# Richards 1D column
+include("richards/constitutive/haverkamp.jl")
+include("richards/richards_parameters.jl")
+include("richards/richards_state.jl")
+include("richards/richards_equations.jl")
+include("richards/richards_explicit.jl")
 
 end

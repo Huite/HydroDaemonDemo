@@ -23,7 +23,7 @@ function ImplicitHydrologicalModel(
     saveat,
     timestepper::TimeStepper,
 )
-    state = prepare_state(parameters, initial, parameters.forcing)
+    state = prepare_state(parameters, initial)
     saveat = create_saveat(saveat, parameters.forcing, tspan)
     nstate = length(primary(state))
     nsave = length(saveat) + 1
@@ -56,7 +56,7 @@ function timestep!(model::ImplicitHydrologicalModel, Δt)
         converged, n_newton_iter = solve!(model.solver, model.state, model.parameters, Δt)
     end
 
-    # After convergence, compute the recommended next step size based on solver performance
+    # After convergence, compute the recommended next step size based on solver performance?
     #    Δt_next = compute_next_time_step(model.timestepper, Δt, converged, n_newton_iter)
     #    return Δt, Δt_next
     return Δt

@@ -9,6 +9,10 @@ struct Haverkamp <: ConstitutiveRelationships
     θr::Float
 end
 
+function Haverkamp(; α, β, γ, A, ks, θs, θr)
+    return Haverkamp(α, β, γ, A, ks, θs, θr)
+end
+
 function conductivity(ψ, h::Haverkamp)
     return h.ks * h.A / (h.A + abs(min(ψ, 0.0))^h.γ)
 end

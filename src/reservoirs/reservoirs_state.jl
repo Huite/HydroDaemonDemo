@@ -8,7 +8,7 @@ function primary(state::CascadeState)
     return state.S
 end
 
-function prepare_state(p::BucketCascade, initial, forcing)
+function prepare_state(p::BucketCascade, initial)
     return CascadeState(copy(initial), copy(initial), zeros(2))
 end
 

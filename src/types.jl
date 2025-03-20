@@ -5,9 +5,10 @@ abstract type State end
 abstract type TimeStepper end
 abstract type ExplicitState <: State end
 abstract type ImplicitState <: State end
+abstract type ConstitutiveRelationships end
 
 
-function prepare_state(parameters, initial, forcing)
+function prepare_state(parameters, initial)
     error("prepare_state not implemented for $(typeof(parameters))")
 end
 

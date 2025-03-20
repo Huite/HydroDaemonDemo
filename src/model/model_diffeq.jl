@@ -2,9 +2,9 @@
 Wrapper around the (mutable) state and the (immutable) parameters,
 as the DifferentialEquations uses a single parameters argument.
 """
-struct DiffEqParams{S,P}
-    state::S
+struct DiffEqParams{P,S}
     parameters::P
+    state::S
 end
 
 function update_forcing!(integrator)
@@ -25,13 +25,36 @@ struct SolverConfig
     maxiters::Int
 end
 
+function SolverConfig(
+    dt,
+    dtmin,
+    dtmax;
+    alg = Tsit5(),
+    adaptive = true,
+    force_dtmin = false,
+    abstol = 1e-6,
+    reltol = 1e-6,
+    maxiters = 100,
+)
+    return SolverConfig(
+        alg,
+        adaptive,
+        dt,
+        dtmin,
+        dtmax,
+        force_dtmin,
+        abstol,
+        reltol,
+        maxiters,
+    )
+end
+
 struct DiffEqHydrologicalModel
     problem::ODEProblem
     saveat::Vector{Float}
     tstops::Vector{Float}
     callbacks::CallbackSet
     solverconfig::SolverConfig
-    # isoutofdomain::Function  # use a closure instead, dispatch on parameters or state?
 end
 
 function DiffEqHydrologicalModel(
@@ -43,21 +66,21 @@ function DiffEqHydrologicalModel(
 )
     forcing = parameters.forcing
     saveat = create_saveat(saveat, forcing, tspan)
-    state = prepare_state(parameters, initial, forcing)
-    params = DiffEqParams(buckets, state)
+    pushfirst!(saveat, 0.0)
+    state = prepare_state(parameters, initial)
+    params = DiffEqParams(parameters, state)
     tstops = unique(sort(vcat(forcing.t, saveat)))
     forcing_callback =
         PresetTimeCallback(forcing.t, update_forcing!; save_positions = (false, false))
     callbacks = CallbackSet(forcing_callback)
-    problem = ODEProblem(rhs!, state.S, tspan, params)
-    return HydrologicalModel(problem, saveat, tstops, callbacks, solverconfig)
+    problem = ODEProblem(model_rhs!, state.S, tspan, params)
+    return DiffEqHydrologicalModel(problem, saveat, tstops, callbacks, solverconfig)
 end
 
 function run!(model::DiffEqHydrologicalModel)
     config = model.solverconfig
     _, tend = model.problem.tspan
-
-    model.solution = solve(
+    solution = solve(
         model.problem,
         config.alg;
         progress = false,
@@ -66,7 +89,7 @@ function run!(model::DiffEqHydrologicalModel)
         save_everystep = false,
         callback = model.callbacks,
         tstops = model.tstops,
-        isoutofdomain = model.isoutofdomain,
+        isoutofdomain = isoutofdomain,
         adaptive = config.adaptive,
         dt = config.dt,
         dtmin = config.dtmin,
@@ -77,5 +100,5 @@ function run!(model::DiffEqHydrologicalModel)
         maxiters = config.maxiters,
         saveat = model.saveat,
     )
-    return
+    return Matrix(solution)
 end

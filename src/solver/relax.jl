@@ -52,7 +52,7 @@ function QuadraticLineSearch(; a0 = 1.0, c = 1e-4, maxiter = 5, low = 0.01, high
     return QuadraticLineSearch(a0, c, maxiter, low, high)
 end
 
-function quadratic_step(α₂, L2₀, L2₂)
+function quadratic_minimum(α₂, L2₀, L2₂)
     # Fit y = f(x) = ax² + bx + c
     # Then find its minimum: -b/2a
     #
@@ -76,7 +76,7 @@ function quadratic_step(α₂, L2₀, L2₂)
     return newstep
 end
 
-function cubic_step(α₁, α₂, L2₀, L2₁, L2₂)
+function cubic_minimum(α₁, α₂, L2₀, L2₁, L2₂)
     # Fit y = f(x) = ax³ + bx² + cx + d
     # Then find its minimum by solving f'(x) = 0
     # f'(x) = 3ax² + 2bx + c = 0
@@ -124,7 +124,7 @@ function cubic_step(α₁, α₂, L2₀, L2₁, L2₂)
 end
 
 function compute_step(ls::QuadraticLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
-    newstep = quadratic_step(α₂, L2₀, L2₂)
+    newstep = quadratic_minimum(α₂, L2₀, L2₂)
     if isnan(newstep)
         newstep = α₂ * ls.high
     end
@@ -148,9 +148,9 @@ end
 function compute_step(ls::CubicLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
     if isapprox(L2₀, L2₁)
         # Will trigger first iteration
-        newstep = quadratic_step(α₂, L2₀, L2₂)
+        newstep = quadratic_minimum(α₂, L2₀, L2₂)
     else
-        newstep = cubic_step(α₁, α₂, L2₀, L2₁, L2₂)
+        newstep = cubic_minimum(α₁, α₂, L2₀, L2₁, L2₂)
     end
 
     # Check for NaN, and bound the step size within low and high multipliers

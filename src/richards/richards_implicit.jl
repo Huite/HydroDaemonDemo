@@ -1,29 +1,7 @@
 """
-This struct holds the mutable members of the Richards 1D simulation.
-"""
-struct RichardsImplicitState <: RichardsState
-    ψ::Vector{Float}
-    θ::Vector{Float}
-    ψ_old::Vector{Float}
-    θ_old::Vector{Float}
-    # specific moisture capacity
-    C::Vector{Float}
-    # conductivity
-    k::Vector{Float}
-    k_inter::Vector{Float}
-    kΔz⁻¹::Vector{Float}
-    Δψ::Vector{Float}  # Δψ/Δz
-    # Newton-Raphson work arrays
-    dk::Vector{Float}  # dk/dψ
-    dS::Vector{Float}  # dS/dψ
-    # Forcing
-    forcing::Vector{Float}
-end
-
-"""
     Synchronize the dependent variables (k, C, θ) based on ψ.
 """
-function synchronize!(state::RichardsImplicitState, parameters)
+function synchronize!(state::RichardsState, parameters)
     # Conductance
     @. state.k = conductivity(state.ψ, parameters)
     @. state.dk = dconductivity(state.ψ, parameters)
@@ -38,12 +16,35 @@ function synchronize!(state::RichardsImplicitState, parameters)
     @. state.θ = moisture_content(state.ψ[2:end-1], parameters)
 end
 
+function apply_update!(state::RichardsState, linearsolver, a)
+    @. state.ψ += a * linearsolver.ϕ
+    return
+end
+
+function copy_state!(state::RichardsState)
+    copyto!(state.ψ_old, state.ψ)
+    copyto!(state.θ_old, state.θ)
+end
+
+function rewind!(state::RichardsState)
+    copyto!(state.ψ, state.ψ_old)
+    # TODO: this is overwritten anyway in a synchronize?
+    # copyto!(state.θ, state.θ_old)
+end
+
 """
     Formulate residual and set rhs.
 
     Use Δt = ∞ for steady-state.
 """
-function residual!(state::RichardsImplicitState, parameters, Δt)
+function residual!(
+    linearsolver::LinearSolver,
+    state::RichardsState,
+    parameters::RichardsParameters,
+    Δt,
+)
+    r = linearsolver.r
+
     @. state.Δψ = @view(state.ψ[2:end]) - @view(state.ψ[1:end-1])
     Δψᵢ₊₁ = @view(state.Δψ[2:end])
     Δψᵢ₋₁ = @view(state.Δψ[1:end-1])
@@ -51,29 +52,15 @@ function residual!(state::RichardsImplicitState, parameters, Δt)
     kΔz⁻¹ᵢ₋₁ = @view(state.kΔz⁻¹[1:end-1])
 
     # storage
-    @. state.residual = state.Δz * (state.θ_old - state.θ) / Δt
+    @. r = state.Δz * (state.θ_old - state.θ) / Δt
     # flow
-    @. state.residual += kΔz⁻¹ᵢ₊₁ * Δψᵢ₊₁ - kΔz⁻¹ᵢ₋₁ * Δψᵢ₋₁
+    @. r += kΔz⁻¹ᵢ₊₁ * Δψᵢ₊₁ - kΔz⁻¹ᵢ₋₁ * Δψᵢ₋₁
     # gravity
-    @. state.residual += (@view(state.k_inter[1:end-1]) - @view(state.k_inter[2:end]))
+    @. r += (@view(state.k_inter[1:end-1]) - @view(state.k_inter[2:end]))
+
+    topboundary_residual!(r, state, parameters.topboundary)
+    bottomboundary_residual!(r, state, parameters.bottomboundary)
     return
-end
-
-"""
-    Copy and preserve the old state for time stepping.
-"""
-function copy_state!(state::RichardsImplicitState)
-    copyto!(state.ψ_old, state.ψ)
-    copyto!(state.θ_old, state.θ)
-end
-
-"""
-    Restore old state and residual after convergence failure.
-"""
-function rewind!(state::RichardsImplicitState)
-    copyto!(state.ψ, state.ψ_old)
-    # TODO: this is overwritten anyway in a synchronize?
-    # copyto!(state.θ, state.θ_old)
 end
 
 """
@@ -81,7 +68,14 @@ end
 
     Use Δt = ∞ for steady-state.
 """
-function jacobian!(linearsolver::LinearSolver, state::RichardsState, parameters, Δt)
+function jacobian!(
+    linearsolver::LinearSolver,
+    state::RichardsState,
+    parameters::RichardsParameters,
+    Δt,
+)
+    J = linearsolver.J
+
     kΔz⁻¹ᵢ₋₁ = @view(state.kΔz⁻¹[1:end-1])
     kΔz⁻¹ᵢ₊₁ = @view(state.kΔz⁻¹[2:end])
     Δz = parameters.Δz
@@ -105,5 +99,8 @@ function jacobian!(linearsolver::LinearSolver, state::RichardsState, parameters,
     @. J.dl += -dkᵢ₋₁l * (Δψᵢ₋₁l / Δz + 1.0)
     @. J.d += -dkᵢ₋₁ * (Δψᵢ₋₁ / Δz + 1.0) + dkᵢ₊₁ * (Δψᵢ₊₁ / Δz + 1.0)
     @. J.du += dkᵢ₊₁u * (Δψᵢ₊₁u / Δz + 1.0)
+
+    topboundary_jacobian!(J, state, parameters.topboundary)
+    bottomboundary_jacobian!(J, state, parameters.bottomboundary)
     return
 end
