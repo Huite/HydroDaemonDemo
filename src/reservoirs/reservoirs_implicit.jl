@@ -25,18 +25,18 @@ function residual!(
 )
     S = state.S
     Sold = state.Sold
-    r = linearsolver.rhs
+    F = linearsolver.rhs
     p_rate = state.forcing[1]
     e_rate = state.forcing[2]
     q_upstream = 0.0
     for (i, bucket) in enumerate(cascade.buckets)
         # Right-hand-side: water balance residual
         q = smooth_flow(bucket, S[i])
-        r[i] = -(
-            precipitation(bucket, p_rate) - smooth_evaporation(bucket, S[i], e_rate) - q + q_upstream - (S[i] - Sold[i]) / Δt
-        )
+        F[i] = precipitation(bucket, p_rate) - smooth_evaporation(bucket, S[i], e_rate) - q + q_upstream - (S[i] - Sold[i]) / Δt
         q_upstream = q
     end
+    # Newton-Raphson uses the negative residual
+    @. linearsolver.rhs = -F
     return
 end
 
@@ -48,18 +48,21 @@ function jacobian!(
 )
     S = state.S
     J = linearsolver.J
+    dFdSᵢ = J.d
+    dFdSᵢ₋₁ = J.dl
+    # dFdSᵢ₊₁ = J.du is always zero.
     e_rate = state.forcing[2]
     dq_upstream = 0.0
     for (i, bucket) in enumerate(cascade.buckets)
         # Jacobian terms
         # Lower diagonal J[i, i-1]
         if i > 1
-            J.dl[i-1] = dq_upstream
+            dFdSᵢ₋₁[i-1] = dq_upstream
         end
 
         # Diagonal: J[i, i]
         dq = dsmooth_flow(bucket, S[i])
-        J.d[i] = -dq - dsmooth_evaporation(bucket, S[i], e_rate) - 1.0 / Δt
+        dFdSᵢ[i] = -dq - dsmooth_evaporation(bucket, S[i], e_rate) - 1.0 / Δt
         dq_upstream = dq
     end
 end

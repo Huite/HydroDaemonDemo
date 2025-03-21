@@ -1,21 +1,3 @@
-"""
-    Synchronize the dependent variables (k, C, θ) based on ψ.
-"""
-function synchronize!(state::RichardsState, parameters)
-    # Conductance
-    @. state.k = conductivity(state.ψ, parameters)
-    @. state.dk = dconductivity(state.ψ, parameters)
-    @. state.k_inter = 0.5 * (@view(state.k[1:end-1]) + @view(state.k[2:end]))
-    @. state.kΔz⁻¹ = state.k_inter / parameters.Δz
-
-    # Moisture capacity
-    @. state.C = specific_moisture_capacity(@view(state.ψ[2:end-1]), parameters)
-    @. state.dS = state.C * parameters.Δz
-
-    # Moisture content
-    @. state.θ = moisture_content(state.ψ[2:end-1], parameters)
-end
-
 function apply_update!(state::RichardsState, linearsolver, a)
     @. state.ψ += a * linearsolver.ϕ
     return
@@ -43,23 +25,19 @@ function residual!(
     parameters::RichardsParameters,
     Δt,
 )
-    r = linearsolver.r
+    # Fᵢ = - (kΔz⁻¹Δψ)|ᵢ₋₁ - kΔz⁻¹|ᵢ₋₁ + (kΔz⁻¹ Δψ)|ᵢ₊₁ + kΔz⁻¹|ᵢ₊₁ + qⱼ - Δzᵢ (θᵢᵗ⁺¹ - θᵢᵗ) / Δt 
+    F = linearsolver.rhs
 
-    @. state.Δψ = @view(state.ψ[2:end]) - @view(state.ψ[1:end-1])
-    Δψᵢ₊₁ = @view(state.Δψ[2:end])
-    Δψᵢ₋₁ = @view(state.Δψ[1:end-1])
-    kΔz⁻¹ᵢ₊₁ = @view(state.kΔz⁻¹[2:end])
-    kΔz⁻¹ᵢ₋₁ = @view(state.kΔz⁻¹[1:end-1])
+    @. F = -(parameters.Δz * (state.θ - state.θ_old) / Δt)  # i terms
+    @. F[2:end] += -state.kΔψΔz⁻¹  - state.k_inter  # i-1 terms
+    @. F[1:end - 1] += state.kΔψΔz⁻¹ + state.k_inter  # i+1 terms
 
-    # storage
-    @. r = state.Δz * (state.θ_old - state.θ) / Δt
-    # flow
-    @. r += kΔz⁻¹ᵢ₊₁ * Δψᵢ₊₁ - kΔz⁻¹ᵢ₋₁ * Δψᵢ₋₁
-    # gravity
-    @. r += (@view(state.k_inter[1:end-1]) - @view(state.k_inter[2:end]))
+    topboundary_residual!(F, state, parameters, parameters.forcing)
+    topboundary_residual!(F, state, parameters, parameters.topboundary)
+    bottomboundary_residual!(F, state, parameters, parameters.bottomboundary)
 
-    topboundary_residual!(r, state, parameters.topboundary)
-    bottomboundary_residual!(r, state, parameters.bottomboundary)
+    # Flip the sign, since the Newton-Raphson scheme uses the negative residual.
+    @. linearsolver.rhs = -F
     return
 end
 
@@ -74,33 +52,33 @@ function jacobian!(
     parameters::RichardsParameters,
     Δt,
 )
+    # dFᵢ/dψᵢ₋₁ = (kΔz⁻¹)|ᵢ₋₁ - dk/dψ|ᵢ₋₁ * (ΔψΔz⁻¹ + 1) * Δzᵢ₋₁ / (Δzᵢ₋₁ + Δzᵢ)
+    # dFᵢ/dψᵢ = -CΔz/Δt
+    # dFᵢ/dψᵢ₊₁ =  (kΔz⁻¹)|ᵢ₊₁ - dk/dψ|ᵢ₊₁ * (ΔψΔz⁻¹ + 1) * Δzᵢ₊₁ / (Δzᵢ₊₁ + Δzᵢ)
+
     J = linearsolver.J
+    dFᵢdψᵢ = J.d
+    dFᵢdψᵢ₋₁ = J.dl
+    dFᵢdψᵢ₊₁ = J.du
 
-    kΔz⁻¹ᵢ₋₁ = @view(state.kΔz⁻¹[1:end-1])
-    kΔz⁻¹ᵢ₊₁ = @view(state.kΔz⁻¹[2:end])
-    Δz = parameters.Δz
+    dkᵢ₋₁ = @view(state.dk[1:end-1])
+    dkᵢ₊₁ = @view(state.dk[2:end])
+    Δzᵢ₋₁ = @view(parameters.Δz[1:end-1])
+    Δzᵢ₊₁ = @view(parameters.Δz[2:end])
 
-    # Calculate tridiagonal Jacobian matrix coefficients
-    @. J.dl = -kΔz⁻¹ᵢ₋₁[2:end]
-    @. J.d = state.dS / Δt + kΔz⁻¹ᵢ₋₁ + kΔz⁻¹ᵢ₊₁
-    @. J.du = -kΔz⁻¹ᵢ₊₁[1:end-1]
+    @. dFᵢdψᵢ₋₁ = state.kΔz⁻¹ - dkᵢ₋₁  * state.ΔψΔz⁻¹ * Δzᵢ₋₁ / (Δzᵢ₋₁ + Δzᵢ₊₁)
 
-    # Add linearized conductivity terms
-    Δψᵢ₋₁ = @view(state.Δψ[1:end-1])
-    Δψᵢ₊₁ = @view(state.Δψ[2:end])
-    dkᵢ₋₁ = @view(state.dk[1:end-2])
-    dkᵢ₊₁ = @view(state.dk[3:end])
+    # terms for i
+    @. dFᵢdψᵢ = -(state.C * parameters.Δz) / Δt
+    # terms for i-1
+    @. dFᵢdψᵢ[1:end-1] += -state.kΔz⁻¹ - dkᵢ₋₁ * state.ΔψΔz⁻¹ * Δzᵢ₋₁ / (Δzᵢ₋₁ + Δzᵢ₊₁)
+    # terms for i+1
+    @. dFᵢdψᵢ[2:end] += -state.kΔz⁻¹ + dkᵢ₊₁ * state.ΔψΔz⁻¹ * Δzᵢ₊₁ / (Δzᵢ₊₁ + Δzᵢ₋₁)
 
-    Δψᵢ₋₁l = @view(Δψᵢ₋₁[2:end])
-    Δψᵢ₊₁u = @view(Δψᵢ₊₁[1:end-1])
-    dkᵢ₋₁l = @view(dkᵢ₋₁[2:end])
-    dkᵢ₊₁u = @view(dkᵢ₊₁[1:end-1])
+    @. dFᵢdψᵢ₊₁ = state.kΔz⁻¹ + dkᵢ₊₁ * state.ΔψΔz⁻¹ * Δzᵢ₊₁ / (Δzᵢ₊₁ + Δzᵢ₋₁)
 
-    @. J.dl += -dkᵢ₋₁l * (Δψᵢ₋₁l / Δz + 1.0)
-    @. J.d += -dkᵢ₋₁ * (Δψᵢ₋₁ / Δz + 1.0) + dkᵢ₊₁ * (Δψᵢ₊₁ / Δz + 1.0)
-    @. J.du += dkᵢ₊₁u * (Δψᵢ₊₁u / Δz + 1.0)
-
-    topboundary_jacobian!(J, state, parameters.topboundary)
-    bottomboundary_jacobian!(J, state, parameters.bottomboundary)
+    topboundary_jacobian!(J, state, parameters, parameters.forcing)
+    topboundary_jacobian!(J, state, parameters, parameters.topboundary)
+    bottomboundary_jacobian!(J, state, parameters, parameters.bottomboundary)
     return
 end

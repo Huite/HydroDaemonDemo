@@ -47,5 +47,6 @@ include("richards/richards_parameters.jl")
 include("richards/richards_state.jl")
 include("richards/richards_equations.jl")
 include("richards/richards_explicit.jl")
+include("richards/richards_implicit.jl")
 
 end

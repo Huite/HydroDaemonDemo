@@ -27,7 +27,7 @@ function residual!(
     PET = state.forcing[2]
     S = state.S
     Sold = state.Sold
-    r = linearsolver.rhs
+    rhs = linearsolver.rhs
 
     S1 = S[1]
     S2 = S[2]
@@ -40,8 +40,9 @@ function residual!(
     qufof = (p - qsx) * activation(S1, fuse.S1max)
     qb = fuse.v * S2
 
-    r[1] = -(p - qsx - e1 - q12 - qufof - (S1 - Sold[1]) / Δt)
-    r[2] = -(q12 - qb - (S2 - Sold[2]) / Δt)
+    # Newton-Raphson use the negative residual
+    rhs[1] = -(p - qsx - e1 - q12 - qufof - (S1 - Sold[1]) / Δt)
+    rhs[2] = -(q12 - qb - (S2 - Sold[2]) / Δt)
     return
 end
 

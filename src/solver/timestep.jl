@@ -2,10 +2,16 @@ struct FixedTimeStepper <: TimeStepper
     Δt0::Float
 end
 
-function compute_timestep_size(timestepper::FixedTimeStepper, _, converged, _)
+# Called in implicit model
+function compute_timestep_size(timestepper::FixedTimeStepper, _, converged::Bool, _)
     if !converged
         error("Failed to converge. Consider using adaptive time stepping.")
     end
+    return timestepper.Δt0
+end
+
+# Called in explicit model
+function compute_timestep_size(timestepper::FixedTimeStepper, state::State, parameters::Parameters, Δt)
     return timestepper.Δt0
 end
 
@@ -46,4 +52,11 @@ function compute_timestep_size(
     else
         return Δt
     end
+end
+
+
+struct CFLTimeStepper <: TimeStepper
+    Δt0::Float
+    target::Float
+    minstep::Float
 end
