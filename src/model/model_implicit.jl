@@ -28,6 +28,8 @@ function ImplicitHydrologicalModel(
     nstate = length(primary(state))
     nsave = length(saveat) + 1
     saved = zeros(nstate, nsave)
+    # Make sure state is up-to-date with initial state and parameters.
+    synchronize!(state, parameters)
     return ImplicitHydrologicalModel(
         parameters,
         state,

@@ -25,12 +25,12 @@ function residual!(
     parameters::RichardsParameters,
     Δt,
 )
-    # Fᵢ = - (kΔz⁻¹Δψ)|ᵢ₋₁ - kΔz⁻¹|ᵢ₋₁ + (kΔz⁻¹ Δψ)|ᵢ₊₁ + kΔz⁻¹|ᵢ₊₁ + qⱼ - Δzᵢ (θᵢᵗ⁺¹ - θᵢᵗ) / Δt 
+    # Fᵢ = - (kΔz⁻¹Δψ)|ᵢ₋₁ - kΔz⁻¹|ᵢ₋₁ + (kΔz⁻¹ Δψ)|ᵢ₊₁ + kΔz⁻¹|ᵢ₊₁ + qᵢ - Δzᵢ (θᵢᵗ⁺¹ - θᵢᵗ) / Δt 
     F = linearsolver.rhs
 
     @. F = -(parameters.Δz * (state.θ - state.θ_old) / Δt)  # i terms
-    @. F[2:end] += -state.kΔψΔz⁻¹  - state.k_inter  # i-1 terms
-    @. F[1:end - 1] += state.kΔψΔz⁻¹ + state.k_inter  # i+1 terms
+    @. F[2:end] += -state.kΔψΔz⁻¹ - state.k_inter  # i-1 terms
+    @. F[1:end-1] += state.kΔψΔz⁻¹ + state.k_inter  # i+1 terms
 
     topboundary_residual!(F, state, parameters, parameters.forcing)
     topboundary_residual!(F, state, parameters, parameters.topboundary)
@@ -42,9 +42,11 @@ function residual!(
 end
 
 """
-    Formulate and set coefficients in the matrix.
+    Construct the Jacobian matrix for the Richards equation finite difference system.
+    Sets coefficients for the tridiagonal matrix representing ∂F/∂ψ from the perspective 
+    of cell i, with connections to cells i-1 and i+1.
 
-    Use Δt = ∞ for steady-state.
+    Use Δt = ∞ for steady-state simulations.
 """
 function jacobian!(
     linearsolver::LinearSolver,
@@ -53,29 +55,30 @@ function jacobian!(
     Δt,
 )
     # dFᵢ/dψᵢ₋₁ = (kΔz⁻¹)|ᵢ₋₁ - dk/dψ|ᵢ₋₁ * (ΔψΔz⁻¹ + 1) * Δzᵢ₋₁ / (Δzᵢ₋₁ + Δzᵢ)
-    # dFᵢ/dψᵢ = -CΔz/Δt
-    # dFᵢ/dψᵢ₊₁ =  (kΔz⁻¹)|ᵢ₊₁ - dk/dψ|ᵢ₊₁ * (ΔψΔz⁻¹ + 1) * Δzᵢ₊₁ / (Δzᵢ₊₁ + Δzᵢ)
+    # dFᵢ/dψᵢ = -CΔz/Δt 
+    #          - (kΔz⁻¹)|ᵢ₋₁ + dk/dψ|ᵢ * (ΔψΔz⁻¹ + 1)|ᵢ₋₁ * Δzᵢ / (Δzᵢ₋₁ + Δzᵢ)
+    #          - (kΔz⁻¹)|ᵢ₊₁ - dk/dψ|ᵢ * (ΔψΔz⁻¹ + 1)|ᵢ₊₁ * Δzᵢ / (Δzᵢ₊₁ + Δzᵢ)
+    # dFᵢ/dψᵢ₊₁ = (kΔz⁻¹)|ᵢ₊₁ + dk/dψ|ᵢ₊₁ * (ΔψΔz⁻¹ + 1) * Δzᵢ₊₁ / (Δzᵢ₊₁ + Δzᵢ)
 
     J = linearsolver.J
-    dFᵢdψᵢ = J.d
-    dFᵢdψᵢ₋₁ = J.dl
-    dFᵢdψᵢ₊₁ = J.du
+    dFᵢdψᵢ = J.d  # derivatives of F₁, ... Fₙ with respect to ψ₁, ... ψₙ
+    dFᵢ₊₁dψᵢ = J.dl  # derivatives of F₂, ... Fₙ with respect to ψ₁, ... ψₙ₋₁
+    dFᵢ₋₁dψᵢ = J.du  # derivatives of F₁, ... Fₙ₋₁ with respect to ψ₂, ... ψₙ
 
+    # TODO: Probably swap these variable names
     dkᵢ₋₁ = @view(state.dk[1:end-1])
     dkᵢ₊₁ = @view(state.dk[2:end])
     Δzᵢ₋₁ = @view(parameters.Δz[1:end-1])
     Δzᵢ₊₁ = @view(parameters.Δz[2:end])
 
-    @. dFᵢdψᵢ₋₁ = state.kΔz⁻¹ - dkᵢ₋₁  * state.ΔψΔz⁻¹ * Δzᵢ₋₁ / (Δzᵢ₋₁ + Δzᵢ₊₁)
+    # First compute the off-diagonal terms
+    @. dFᵢ₊₁dψᵢ = state.kΔz⁻¹ - dkᵢ₋₁ * state.ΔψΔz⁻¹ * Δzᵢ₋₁ / (Δzᵢ₋₁ + Δzᵢ₊₁)
+    @. dFᵢ₋₁dψᵢ = state.kΔz⁻¹ + dkᵢ₊₁ * state.ΔψΔz⁻¹ * Δzᵢ₊₁ / (Δzᵢ₊₁ + Δzᵢ₋₁)
 
-    # terms for i
+    # Then compute the diagonal term
     @. dFᵢdψᵢ = -(state.C * parameters.Δz) / Δt
-    # terms for i-1
-    @. dFᵢdψᵢ[1:end-1] += -state.kΔz⁻¹ - dkᵢ₋₁ * state.ΔψΔz⁻¹ * Δzᵢ₋₁ / (Δzᵢ₋₁ + Δzᵢ₊₁)
-    # terms for i+1
-    @. dFᵢdψᵢ[2:end] += -state.kΔz⁻¹ + dkᵢ₊₁ * state.ΔψΔz⁻¹ * Δzᵢ₊₁ / (Δzᵢ₊₁ + Δzᵢ₋₁)
-
-    @. dFᵢdψᵢ₊₁ = state.kΔz⁻¹ + dkᵢ₊₁ * state.ΔψΔz⁻¹ * Δzᵢ₊₁ / (Δzᵢ₊₁ + Δzᵢ₋₁)
+    @. dFᵢdψᵢ[1:end-1] += -dFᵢ₊₁dψᵢ
+    @. dFᵢdψᵢ[2:end] += -dFᵢ₋₁dψᵢ
 
     topboundary_jacobian!(J, state, parameters, parameters.forcing)
     topboundary_jacobian!(J, state, parameters, parameters.topboundary)

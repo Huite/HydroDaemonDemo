@@ -32,7 +32,9 @@ function residual!(
     for (i, bucket) in enumerate(cascade.buckets)
         # Right-hand-side: water balance residual
         q = smooth_flow(bucket, S[i])
-        F[i] = precipitation(bucket, p_rate) - smooth_evaporation(bucket, S[i], e_rate) - q + q_upstream - (S[i] - Sold[i]) / Δt
+        F[i] =
+            precipitation(bucket, p_rate) - smooth_evaporation(bucket, S[i], e_rate) - q +
+            q_upstream - (S[i] - Sold[i]) / Δt
         q_upstream = q
     end
     # Newton-Raphson uses the negative residual

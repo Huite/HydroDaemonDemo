@@ -24,7 +24,6 @@ parameters = HydroDaemonDemo.RichardsParameters(
     fill(Δz, n),
     HydroDaemonDemo.MeteorologicalForcing([0.0], [0.0], [0.0]),
     HydroDaemonDemo.HeadBoundary(-61.5, constitutive[1]),
-    #HydroDaemonDemo.HeadBoundary(-21.0, constitutive[end]),
     HydroDaemonDemo.HeadBoundary(-21.0, constitutive[end]),
 )
 tspan = (0.0, 5.0)
@@ -34,7 +33,7 @@ explicit_richards = HydroDaemonDemo.ExplicitHydrologicalModel(
     initial,
     tspan,
     saveat,
-#    HydroDaemonDemo.FixedTimeStepper(0.1),
+    #    HydroDaemonDemo.FixedTimeStepper(0.1),
     HydroDaemonDemo.CFLTimeStepper(0.1, 0.5, 1e-6),
 )
 HydroDaemonDemo.run!(explicit_richards)

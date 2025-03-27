@@ -34,11 +34,21 @@ function topflux(
     return state.forcing[1]
 end
 
-function topboundary_residual!(F, state::RichardsState, parameters::RichardsParameters, forcing::MeteorologicalForcing)
+function topboundary_residual!(
+    F,
+    state::RichardsState,
+    parameters::RichardsParameters,
+    forcing::MeteorologicalForcing,
+)
     F[end] += state.forcing[1]
 end
 
-function topboundary_jacobian!(J, state::RichardsState, parameters::RichardsParameters, forcing::MeteorologicalForcing)
+function topboundary_jacobian!(
+    J,
+    state::RichardsState,
+    parameters::RichardsParameters,
+    forcing::MeteorologicalForcing,
+)
     return
 end
 
@@ -70,8 +80,8 @@ function bottomboundary_residual!(
     kmean = 0.5 * (state.k[1] + boundary.k)
     Δψ = boundary.ψ - state.ψ[1]
     Δz = 0.5 * parameters.Δz[1]
-    F[1] += kmean * Δψ / Δz + kmean
-    return 
+    F[1] += kmean * (Δψ / Δz - 1)
+    return
 end
 
 function bottomboundary_jacobian!(
@@ -84,7 +94,7 @@ function bottomboundary_jacobian!(
     Δψ = boundary.ψ - state.ψ[1]
     dk = 0.5 * state.dk[1]
     Δz = 0.5 * parameters.Δz[1]
-    J.d[1] += kmean / Δz + dk * Δψ / Δz + dk 
+    J.d[1] += -(kmean / Δz) + dk * (Δψ / Δz - 1)
     return
 end
 
@@ -104,9 +114,10 @@ function topboundary_residual!(
     boundary::HeadBoundary,
 )
     kmean = 0.5 * (state.k[end] + boundary.k)
-    Δψ = state.ψ[end] - boundary.ψ
-    Δz = 0.5 * parameters.Δz[end]
-    F[end] -= kmean * Δψ / Δz - kmean
+    Δψ = boundary.ψ - state.ψ[end]
+    #Δz = 0.5 * parameters.Δz[end]
+    Δz = parameters.Δz[end]
+    F[end] += kmean * (Δψ / Δz + 1)
     return
 end
 
@@ -117,10 +128,11 @@ function topboundary_jacobian!(
     boundary::HeadBoundary,
 )
     kmean = 0.5 * (state.k[end] + boundary.k)
-    Δψ = state.ψ[end] - boundary.ψ
+    Δψ = boundary.ψ - state.ψ[end]
     dk = 0.5 * state.dk[end]
-    Δz = 0.5 * parameters.Δz[end]
-    J.d[end] -= kmean / Δz + dk * Δψ / Δz - dk
+    #Δz = 0.5 * parameters.Δz[end]
+    Δz = parameters.Δz[end]
+    J.d[end] += -(kmean / Δz) + dk * (Δψ / Δz + 1)
     return
 end
 

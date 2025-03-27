@@ -24,14 +24,19 @@ parameters = HydroDaemonDemo.RichardsParameters(
     fill(Δz, n),
     HydroDaemonDemo.MeteorologicalForcing([0.0], [0.0], [0.0]),
     HydroDaemonDemo.HeadBoundary(-61.5, constitutive[1]),
-    HydroDaemonDemo.HeadBoundary(-21.0, constitutive[end]),
+    HydroDaemonDemo.HeadBoundary(-20.5, constitutive[end]),
+    #    HydroDaemonDemo.FreeDrainage(),
+    #    HydroDaemonDemo.MeteorologicalForcing([0.0], [0.1], [0.0]),
 )
-tspan = (0.0, 360.0)
-saveat = collect(0.0:1.0:360.0)
+tend = 360.0
+tspan = (0.0, tend)
+
+Δt = 360.0
+saveat = collect(0.0:Δt:tend)
 
 solver = HydroDaemonDemo.NewtonSolver(
     HydroDaemonDemo.LinearSolverThomas(n),
-    relax = HydroDaemonDemo.ScalarRelaxation(0.0)
+    relax = HydroDaemonDemo.ScalarRelaxation(0.0),
 )
 implicit_richards = HydroDaemonDemo.ImplicitHydrologicalModel(
     parameters,
@@ -39,6 +44,13 @@ implicit_richards = HydroDaemonDemo.ImplicitHydrologicalModel(
     solver,
     tspan,
     saveat,
-    HydroDaemonDemo.FixedTimeStepper(1.0),
+    HydroDaemonDemo.FixedTimeStepper(Δt),
 )
 HydroDaemonDemo.run!(implicit_richards)
+state = implicit_richards.state
+
+out = implicit_richards.saved
+
+using Plots
+plot(out[:, 1])
+plot(out[:, end])

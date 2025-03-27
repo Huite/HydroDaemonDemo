@@ -11,7 +11,12 @@ function compute_timestep_size(timestepper::FixedTimeStepper, _, converged::Bool
 end
 
 # Called in explicit model
-function compute_timestep_size(timestepper::FixedTimeStepper, state::State, parameters::Parameters, Δt)
+function compute_timestep_size(
+    timestepper::FixedTimeStepper,
+    state::State,
+    parameters::Parameters,
+    Δt,
+)
     return timestepper.Δt0
 end
 
