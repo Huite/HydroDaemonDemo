@@ -52,5 +52,5 @@ state = implicit_richards.state
 out = implicit_richards.saved
 
 using Plots
-plot(out[:, 1])
+#plot(out[:, 1])
 plot(out[:, end])

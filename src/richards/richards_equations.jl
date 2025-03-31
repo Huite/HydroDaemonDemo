@@ -67,8 +67,10 @@ function bottomflux(
     parameters::RichardsParameters,
     boundary::HeadBoundary,
 )
+    kmean = 0.5 * (state.k[1] + boundary.k)
     Δψ = boundary.ψ - state.ψ[1]
-    return boundary.k / (0.5 * parameters.Δz[1]) * Δψ + (boundary.k - state.k[1])
+    Δz = 0.5 * parameters.Δz[1]
+    return kmean * (Δψ / Δz - 1)
 end
 
 function bottomboundary_residual!(
@@ -77,10 +79,7 @@ function bottomboundary_residual!(
     parameters::RichardsParameters,
     boundary::HeadBoundary,
 )
-    kmean = 0.5 * (state.k[1] + boundary.k)
-    Δψ = boundary.ψ - state.ψ[1]
-    Δz = 0.5 * parameters.Δz[1]
-    F[1] += kmean * (Δψ / Δz - 1)
+    F[1] += bottomflux(state, parameters, boundary)
     return
 end
 
@@ -103,8 +102,10 @@ function topflux(
     parameters::RichardsParameters,
     boundary::HeadBoundary,
 )
-    Δψ = state.ψ[end] - boundary.ψ
-    return boundary.k / (0.5 * parameters.Δz[end]) * Δψ + (state.k[end] - boundary.k)
+    kmean = 0.5 * (state.k[end] + boundary.k)
+    Δψ = boundary.ψ - state.ψ[end]
+    Δz = 0.5 * parameters.Δz[end]
+    return kmean * (Δψ / Δz + 1)
 end
 
 function topboundary_residual!(
@@ -113,11 +114,7 @@ function topboundary_residual!(
     parameters::RichardsParameters,
     boundary::HeadBoundary,
 )
-    kmean = 0.5 * (state.k[end] + boundary.k)
-    Δψ = boundary.ψ - state.ψ[end]
-    #Δz = 0.5 * parameters.Δz[end]
-    Δz = parameters.Δz[end]
-    F[end] += kmean * (Δψ / Δz + 1)
+    F[end] += topflux(state, parameters, boundary)
     return
 end
 
@@ -130,8 +127,7 @@ function topboundary_jacobian!(
     kmean = 0.5 * (state.k[end] + boundary.k)
     Δψ = boundary.ψ - state.ψ[end]
     dk = 0.5 * state.dk[end]
-    #Δz = 0.5 * parameters.Δz[end]
-    Δz = parameters.Δz[end]
+    Δz = 0.5 * parameters.Δz[end]
     J.d[end] += -(kmean / Δz) + dk * (Δψ / Δz + 1)
     return
 end
@@ -154,7 +150,7 @@ function bottomboundary_residual!(
     parameters::RichardsParameters,
     boundary::FreeDrainage,
 )
-    F[1] -= state.k[1]
+    F[1] += bottomflux(state, parameters, boundary)
     return
 end
 
