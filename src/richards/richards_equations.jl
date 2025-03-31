@@ -132,11 +132,6 @@ function explicit_timestep!(state::RichardsState, parameters::RichardsParameters
     return
 end
 
-function diffeq_rhs!(du, u, params::DiffEqParams{RichardsParameters,RichardsState}, t)
-    waterbalance!(params.state, params.parameters)
-    return
-end
-
 function residual!(
     linearsolver::LinearSolver,
     state::RichardsState,
@@ -191,4 +186,8 @@ function jacobian!(
     J.d[end] += topboundary_jacobian!(state, parameters, parameters.topboundary)
     J.d[end] += topboundary_jacobian!(state, parameters, parameters.forcing)
     return
+end
+
+function isoutofdomain(u, p::DiffEqParams{RichardsParameters, RichardsState}, t)::Bool
+    return false
 end

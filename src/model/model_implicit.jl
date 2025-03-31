@@ -61,6 +61,5 @@ function timestep!(model::ImplicitHydrologicalModel, Δt)
     # After convergence, compute the recommended next step size based on solver performance?
     #    Δt_next = compute_next_time_step(model.timestepper, Δt, converged, n_newton_iter)
     #    return Δt, Δt_next
-    @show Δt
     return Δt
 end
