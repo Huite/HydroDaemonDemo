@@ -18,7 +18,6 @@ function newton_step!(
     Δt,
 )::Bool
     apply_update!(state, linearsolver, 1.0 - relaxation.relax)
-    synchronize!(state, parameters)
     residual!(linearsolver, state, parameters, Δt)
     return true
 end
@@ -199,7 +198,6 @@ function newton_step!(ls::LineSearch, linearsolver, state, parameters, Δt)
     end
     # Achieved maximum iterations, use αbest.
     apply_update!(state, linearsolver, αbest)
-    synchronize!(state, parameters)
     residual!(linearsolver, state, parameters, Δt)
     return false
 end

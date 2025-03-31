@@ -25,6 +25,8 @@ function residual!(
     parameters::RichardsParameters,
     Δt,
 )
+    synchronize!(state, parameters)
+
     # Fᵢ = - (kΔz⁻¹Δψ)|ᵢ₋₁ - kΔz⁻¹|ᵢ₋₁ + (kΔz⁻¹ Δψ)|ᵢ₊₁ + kΔz⁻¹|ᵢ₊₁ + qᵢ - Δzᵢ (θᵢᵗ⁺¹ - θᵢᵗ) / Δt 
     F = linearsolver.rhs
 

@@ -36,8 +36,6 @@ end
 function solve!(newton::NewtonSolver{LS,R,Nothing}, state, parameters, Δt) where {LS,R}
     # Maintain old state for time stepping.
     copy_state!(state)
-    # Synchronize dependent variables.
-    synchronize!(state, parameters)
     # Compute initial residual
     residual!(newton.linearsolver, state, parameters, Δt)
 
@@ -73,8 +71,6 @@ function solve!(
     # Maintain old state for time stepping.
     copy_state!(state)
     # Synchronize dependent variables.
-    synchronize!(state, parameters)
-    # Compute initial residual
     residual!(newton.linearsolver, state, parameters, Δt)
 
     # Initial step
