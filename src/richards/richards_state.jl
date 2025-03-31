@@ -3,6 +3,7 @@ This struct holds the mutable members of the Richards 1D simulation.
 """
 struct RichardsState <: State
     ψ::Vector{Float}
+    dψ::Vector{Float}  # dψ/dt
     θ::Vector{Float}
     ψ_old::Vector{Float}
     θ_old::Vector{Float}
@@ -20,6 +21,58 @@ struct RichardsState <: State
     dk::Vector{Float}  # dk/dψ
     # Forcing, size 2
     forcing::Vector{Float}
+end
+
+"""Return the primary state."""
+function primary(state::RichardsState)
+    return state.ψ
+end
+
+function righthandside(stat::RichardsState)
+    return state.dψ
+end
+
+function prepare_state(p::RichardsParameters, initial)
+    n = length(p.constitutive)
+    return RichardsState(
+        copy(initial),  # ψ
+        zeros(n),  # dψ
+        zeros(n),  # θ
+        zeros(n),  # ψ_old
+        zeros(n),  # θ_old
+        zeros(n),  # C
+        zeros(n),  # k
+        zeros(n - 1),  # k_inter
+        zeros(n - 1),  # Δψ
+        zeros(n - 1),  # kΔz⁻¹
+        zeros(n - 1),  # ΔψΔz⁻¹
+        zeros(n - 1),  # kΔψΔz⁻¹
+        zeros(n),  # dk
+        zeros(2),
+    )
+end
+
+function force!(state::RichardsState, parameters, t)
+    p, e = find_rates(parameters.forcing, t)
+    state.forcing[1] = p
+    state.forcing[2] = e
+    return
+end
+
+function apply_update!(state::RichardsState, linearsolver, a)
+    @. state.ψ += a * linearsolver.ϕ
+    return
+end
+
+function copy_state!(state::RichardsState)
+    copyto!(state.ψ_old, state.ψ)
+    copyto!(state.θ_old, state.θ)
+end
+
+function rewind!(state::RichardsState)
+    copyto!(state.ψ, state.ψ_old)
+    # TODO: this is overwritten anyway in a synchronize?
+    # copyto!(state.θ, state.θ_old)
 end
 
 """
@@ -46,38 +99,6 @@ function synchronize!(state::RichardsState, parameters)
 
     # Moisture content
     @. state.θ = moisture_content(state.ψ, parameters.constitutive)
-    return
-end
-
-
-"""Return the primary state."""
-function primary(state::S where {S<:RichardsState})
-    return state.ψ
-end
-
-function prepare_state(p::RichardsParameters, initial)
-    n = length(p.constitutive)
-    return RichardsState(
-        copy(initial),  # ψ
-        zeros(n),  # θ
-        zeros(n),  # ψ_old
-        zeros(n),  # θ_old
-        zeros(n),  # C
-        zeros(n),  # k
-        zeros(n - 1),  # k_inter
-        zeros(n - 1),  # Δψ
-        zeros(n - 1),  # kΔz⁻¹
-        zeros(n - 1),  # ΔψΔz⁻¹
-        zeros(n - 1),  # kΔψΔz⁻¹
-        zeros(n),  # dk
-        zeros(2),
-    )
-end
-
-function force!(state::RichardsState, parameters, t)
-    p, e = find_rates(parameters.forcing, t)
-    state.forcing[1] = p
-    state.forcing[2] = e
     return
 end
 

@@ -57,7 +57,6 @@ function run!(model::HydrologicalModel)
 
         # Store output
         if isapprox(t, tsave)
-            @show tsave
             model.saved[:, save_index+1] .= primary(model.state)
             save_index += 1
         end

@@ -4,24 +4,16 @@ function bottomflux(state::RichardsState, parameters::RichardsParameters, bounda
     return 0.0
 end
 
-function bottomboundary_jacobian!(J, state, parameters, boundary::Nothing)
-    return
-end
-
-function bottomboundary_residual!(J, state, parameters, boundary::Nothing)
-    return
+function bottomboundary_jacobian!(state, parameters, boundary::Nothing)
+    return 0.0
 end
 
 function topflux(state::RichardsState, parameters::RichardsParameters, boundary::Nothing)
     return 0.0
 end
 
-function topboundary_jacobian!(J, state, parameters, boundary::Nothing)
-    return
-end
-
-function topboundary_residual!(J, state, parameters, boundary::Nothing)
-    return
+function topboundary_jacobian!(state, parameters, boundary::Nothing)
+    return 0.0
 end
 
 # Precipitation
@@ -34,22 +26,12 @@ function topflux(
     return state.forcing[1]
 end
 
-function topboundary_residual!(
-    F,
-    state::RichardsState,
-    parameters::RichardsParameters,
-    forcing::MeteorologicalForcing,
-)
-    F[end] += state.forcing[1]
-end
-
 function topboundary_jacobian!(
-    J,
     state::RichardsState,
     parameters::RichardsParameters,
     forcing::MeteorologicalForcing,
 )
-    return
+    return 0.0
 end
 
 # Store k value since it never changes
@@ -73,18 +55,7 @@ function bottomflux(
     return kmean * (Δψ / Δz - 1)
 end
 
-function bottomboundary_residual!(
-    F,
-    state::RichardsState,
-    parameters::RichardsParameters,
-    boundary::HeadBoundary,
-)
-    F[1] += bottomflux(state, parameters, boundary)
-    return
-end
-
 function bottomboundary_jacobian!(
-    J,
     state::RichardsState,
     parameters::RichardsParameters,
     boundary::HeadBoundary,
@@ -93,8 +64,7 @@ function bottomboundary_jacobian!(
     Δψ = boundary.ψ - state.ψ[1]
     dk = 0.5 * state.dk[1]
     Δz = 0.5 * parameters.Δz[1]
-    J.d[1] += -(kmean / Δz) + dk * (Δψ / Δz - 1)
-    return
+    return -(kmean / Δz) + dk * (Δψ / Δz - 1)
 end
 
 function topflux(
@@ -108,18 +78,7 @@ function topflux(
     return kmean * (Δψ / Δz + 1)
 end
 
-function topboundary_residual!(
-    F,
-    state::RichardsState,
-    parameters::RichardsParameters,
-    boundary::HeadBoundary,
-)
-    F[end] += topflux(state, parameters, boundary)
-    return
-end
-
 function topboundary_jacobian!(
-    J,
     state::RichardsState,
     parameters::RichardsParameters,
     boundary::HeadBoundary,
@@ -128,8 +87,7 @@ function topboundary_jacobian!(
     Δψ = boundary.ψ - state.ψ[end]
     dk = 0.5 * state.dk[end]
     Δz = 0.5 * parameters.Δz[end]
-    J.d[end] += -(kmean / Δz) + dk * (Δψ / Δz + 1)
-    return
+    return -(kmean / Δz) + dk * (Δψ / Δz + 1)
 end
 
 # Free drainage
@@ -144,22 +102,93 @@ function bottomflux(
     return -state.k[1]
 end
 
-function bottomboundary_residual!(
-    F,
+function bottomboundary_jacobian!(
     state::RichardsState,
     parameters::RichardsParameters,
     boundary::FreeDrainage,
 )
-    F[1] += bottomflux(state, parameters, boundary)
+    return -state.dk[1]
+end
+
+# Full column
+
+function waterbalance!(state::RichardsState, parameters::RichardsParameters)
+    synchronize!(state, parameters)
+    # Internodal flows
+    @. state.dψ = 0.0
+    @. state.dψ[2:end] += -state.kΔψΔz⁻¹ - state.k_inter  # i-1 terms
+    @. state.dψ[1:end-1] += state.kΔψΔz⁻¹ + state.k_inter  # i+1 terms
+    # Boundary conditions
+    state.dψ[1] += bottomflux(state, parameters, parameters.bottomboundary)
+    state.dψ[end] += topflux(state, parameters, parameters.topboundary)
+    state.dψ[end] += topflux(state, parameters, parameters.forcing)
     return
 end
 
-function bottomboundary_jacobian!(
-    J,
+function explicit_timestep!(state::RichardsState, parameters::RichardsParameters, Δt)
+    waterbalance!(state, parameters)
+    # TODO: check storage component; i.e. storage > 0?
+    @. state.ψ += state.dψ * Δt
+    return
+end
+
+function diffeq_rhs!(du, u, params::DiffEqParams{RichardsParameters,RichardsState}, t)
+    waterbalance!(params.state, params.parameters)
+    return
+end
+
+function residual!(
+    linearsolver::LinearSolver,
     state::RichardsState,
     parameters::RichardsParameters,
-    boundary::FreeDrainage,
+    Δt,
 )
-    J.d[1] -= state.dk[1]
+    waterbalance!(state, parameters)
+    @. linearsolver.rhs = -(state.dψ - parameters.Δz * (state.θ - state.θ_old) / Δt)
+    return
+end
+
+"""
+    Construct the Jacobian matrix for the Richards equation finite difference system.
+    Sets coefficients for the tridiagonal matrix representing ∂F/∂ψ from the perspective 
+    of cell i, with connections to cells i-1 and i+1.
+
+    Use Δt = ∞ for steady-state simulations.
+"""
+function jacobian!(
+    linearsolver::LinearSolver,
+    state::RichardsState,
+    parameters::RichardsParameters,
+    Δt,
+)
+    # dFᵢ/dψᵢ₋₁ = (kΔz⁻¹)|ᵢ₋₁ - dk/dψ|ᵢ₋₁ * (ΔψΔz⁻¹ + 1) * Δzᵢ₋₁ / (Δzᵢ₋₁ + Δzᵢ)
+    # dFᵢ/dψᵢ = -CΔz/Δt 
+    #          - (kΔz⁻¹)|ᵢ₋₁ + dk/dψ|ᵢ * (ΔψΔz⁻¹ + 1)|ᵢ₋₁ * Δzᵢ / (Δzᵢ₋₁ + Δzᵢ)
+    #          - (kΔz⁻¹)|ᵢ₊₁ - dk/dψ|ᵢ * (ΔψΔz⁻¹ + 1)|ᵢ₊₁ * Δzᵢ / (Δzᵢ₊₁ + Δzᵢ)
+    # dFᵢ/dψᵢ₊₁ = (kΔz⁻¹)|ᵢ₊₁ + dk/dψ|ᵢ₊₁ * (ΔψΔz⁻¹ + 1) * Δzᵢ₊₁ / (Δzᵢ₊₁ + Δzᵢ)
+
+    J = linearsolver.J
+    dFᵢdψᵢ = J.d  # derivatives of F₁, ... Fₙ with respect to ψ₁, ... ψₙ
+    dFᵢ₊₁dψᵢ = J.dl  # derivatives of F₂, ... Fₙ with respect to ψ₁, ... ψₙ₋₁
+    dFᵢ₋₁dψᵢ = J.du  # derivatives of F₁, ... Fₙ₋₁ with respect to ψ₂, ... ψₙ
+
+    # TODO: Probably swap these variable names
+    dkᵢ₋₁ = @view(state.dk[1:end-1])
+    dkᵢ₊₁ = @view(state.dk[2:end])
+    Δzᵢ₋₁ = @view(parameters.Δz[1:end-1])
+    Δzᵢ₊₁ = @view(parameters.Δz[2:end])
+
+    # First compute the off-diagonal terms
+    @. dFᵢ₊₁dψᵢ = state.kΔz⁻¹ - dkᵢ₋₁ * state.ΔψΔz⁻¹ * Δzᵢ₋₁ / (Δzᵢ₋₁ + Δzᵢ₊₁)
+    @. dFᵢ₋₁dψᵢ = state.kΔz⁻¹ + dkᵢ₊₁ * state.ΔψΔz⁻¹ * Δzᵢ₊₁ / (Δzᵢ₊₁ + Δzᵢ₋₁)
+
+    # Then compute the diagonal term
+    @. dFᵢdψᵢ = -(state.C * parameters.Δz) / Δt
+    @. dFᵢdψᵢ[1:end-1] += -dFᵢ₊₁dψᵢ
+    @. dFᵢdψᵢ[2:end] += -dFᵢ₋₁dψᵢ
+
+    J.d[1] += bottomboundary_jacobian!(state, parameters, parameters.bottomboundary)
+    J.d[end] += topboundary_jacobian!(state, parameters, parameters.topboundary)
+    J.d[end] += topboundary_jacobian!(state, parameters, parameters.forcing)
     return
 end

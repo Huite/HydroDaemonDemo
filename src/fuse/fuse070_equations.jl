@@ -1,33 +1,7 @@
-function synchronize!(state::Fuse070State, parameters)
-    return
-end
-
-function apply_update!(state::Fuse070State, linearsolver, a)
-    @. state.S += a * linearsolver.ϕ
-    return
-end
-
-function copy_state!(state::Fuse070State)
-    copyto!(state.Sold, state.S)
-    return
-end
-
-function rewind!(state::Fuse070State)
-    copyto!(state.S, state.Sold)
-    return
-end
-
-function residual!(
-    linearsolver::LinearSolver,
-    state::Fuse070State,
-    fuse::Fuse070Parameters,
-    Δt,
-)
+function waterbalance!(state::Fuse070State, fuse::Fuse070Parameters)
     p = state.forcing[1]
     PET = state.forcing[2]
     S = state.S
-    Sold = state.Sold
-    rhs = linearsolver.rhs
 
     S1 = S[1]
     S2 = S[2]
@@ -40,9 +14,28 @@ function residual!(
     qufof = (p - qsx) * activation(S1, fuse.S1max)
     qb = fuse.v * S2
 
+    state.dS[1] = p - qsx - e1 - q12 - qufof
+    state.dS[2] = q12 - qb
+    return
+end
+
+
+function explicit_timestep!(state::Fuse070State, fuse::Fuse070Parameters, Δt)
+    waterbalance!(state, fuse)
+    @. state.S += state.dS * Δt
+    @. state.S = max(state.S, 0)
+    return
+end
+
+function residual!(
+    linearsolver::LinearSolver,
+    state::Fuse070State,
+    fuse::Fuse070Parameters,
+    Δt,
+)
+    waterbalance!(state, fuse)
     # Newton-Raphson use the negative residual
-    rhs[1] = -(p - qsx - e1 - q12 - qufof - (S1 - Sold[1]) / Δt)
-    rhs[2] = -(q12 - qb - (S2 - Sold[2]) / Δt)
+    @. linearsolver.rhs = -(state.dS - (state.S - state.Sold) / Δt)
     return
 end
 

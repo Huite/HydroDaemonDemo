@@ -1,5 +1,3 @@
-abstract type Bucket end
-
 struct BucketAnalytic <: Bucket
     area::Float
     a::Float
@@ -90,4 +88,72 @@ function dsmooth_evap_cushion(b::BucketAnalytic, S, rate, tol = 1e2)
     else
         return b.area * rate * (1.0 / tol)
     end
+end
+
+function waterbalance!(state::CascadeState, parameters::BucketCascade)
+    S = state.S
+    dS = state.dS
+    p_rate = state.forcing[1]
+    e_rate = state.forcing[2]
+
+    q_upstream = 0.0
+    for (i, bucket) in enumerate(parameters.buckets)
+        q_downstream = smooth_flow(bucket, S[i])
+        dS[i] = (
+            precipitation(bucket, p_rate) - smooth_evaporation(bucket, S[i], e_rate) +
+            q_upstream - q_downstream
+        )
+        q_upstream = q_downstream
+    end
+    return
+end
+
+function explicit_timestep!(state::CascadeState, parameters::BucketCascade, Δt)
+    waterbalance!(state, parameters)
+    @. state.S += state.dS * Δt
+    @. state.S = max(state.S, 0)
+    return
+end
+
+function residual!(
+    linearsolver::LinearSolver,
+    state::CascadeState,
+    parameters::BucketCascade,
+    Δt,
+)
+    waterbalance!(state, parameters)
+    # Newton-Raphson needs negative residual
+    @. linearsolver.rhs = -(state.dS - (state.S - state.Sold) / Δt)
+    return
+end
+
+function jacobian!(
+    linearsolver::LinearSolver,
+    state::CascadeState,
+    cascade::BucketCascade,
+    Δt,
+)
+    S = state.S
+    J = linearsolver.J
+    dFdSᵢ = J.d
+    dFdSᵢ₋₁ = J.dl
+    # dFdSᵢ₊₁ = J.du is always zero.
+    e_rate = state.forcing[2]
+    dq_upstream = 0.0
+    for (i, bucket) in enumerate(cascade.buckets)
+        # Jacobian terms
+        # Lower diagonal J[i, i-1]
+        if i > 1
+            dFdSᵢ₋₁[i-1] = dq_upstream
+        end
+
+        # Diagonal: J[i, i]
+        dq = dsmooth_flow(bucket, S[i])
+        dFdSᵢ[i] = -dq - dsmooth_evaporation(bucket, S[i], e_rate) - 1.0 / Δt
+        dq_upstream = dq
+    end
+end
+
+function isoutofdomain(u, p::DiffEqParams{<:BucketCascade,CascadeState}, t)::Bool
+    return any(value < 0 for value in u)
 end

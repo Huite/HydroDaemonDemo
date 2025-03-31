@@ -57,6 +57,17 @@ struct DiffEqHydrologicalModel
     solverconfig::SolverConfig
 end
 
+function diffeq_rhs!(du, u, params::DiffEqParams, t)
+    # Copy u into current state
+    currentstate = primary(params.state)
+    copyto!(currentstate, u)
+    waterbalance!(params.state, params.parameters)
+    # Copy formulated rhs into du
+    rhs = righthandside(params.state)
+    copyto!(du, rhs)
+    return
+end
+
 function DiffEqHydrologicalModel(
     parameters::Parameters,
     initial::Vector{Float},
@@ -73,7 +84,8 @@ function DiffEqHydrologicalModel(
     forcing_callback =
         PresetTimeCallback(forcing.t, update_forcing!; save_positions = (false, false))
     callbacks = CallbackSet(forcing_callback)
-    problem = ODEProblem(model_rhs!, state.S, tspan, params)
+    u0 = primary(state)
+    problem = ODEProblem(diffeq_rhs!, u0, tspan, params)
     return DiffEqHydrologicalModel(problem, saveat, tstops, callbacks, solverconfig)
 end
 
