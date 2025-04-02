@@ -115,20 +115,21 @@ end
 function waterbalance!(state::RichardsState, parameters::RichardsParameters)
     synchronize!(state, parameters)
     # Internodal flows
-    @. state.dψ = 0.0
-    @. state.dψ[2:end] += -state.kΔψΔz⁻¹ - state.k_inter  # i-1 terms
-    @. state.dψ[1:end-1] += state.kΔψΔz⁻¹ + state.k_inter  # i+1 terms
+    @. state.∇q = 0.0
+    @views @. state.∇q[2:end] -= (state.kΔψΔz⁻¹ + state.k_inter)  # i-1 terms
+    @views @. state.∇q[1:end-1] += (state.kΔψΔz⁻¹ + state.k_inter)  # i+1 terms
+
     # Boundary conditions
-    state.dψ[1] += bottomflux(state, parameters, parameters.bottomboundary)
-    state.dψ[end] += topflux(state, parameters, parameters.topboundary)
-    state.dψ[end] += topflux(state, parameters, parameters.forcing)
+    state.∇q[1] += bottomflux(state, parameters, parameters.bottomboundary)
+    state.∇q[end] += topflux(state, parameters, parameters.topboundary)
+    state.∇q[end] += topflux(state, parameters, parameters.forcing)
     return
 end
 
 function explicit_timestep!(state::RichardsState, parameters::RichardsParameters, Δt)
     waterbalance!(state, parameters)
     # TODO: check storage component; i.e. storage > 0?
-    @. state.ψ += state.dψ * Δt
+    @. state.ψ += state.∇q * Δt
     return
 end
 
@@ -139,7 +140,7 @@ function residual!(
     Δt,
 )
     waterbalance!(state, parameters)
-    @. linearsolver.rhs = -(state.dψ - parameters.Δz * (state.θ - state.θ_old) / Δt)
+    @. linearsolver.rhs = -(state.∇q - parameters.Δz * (state.θ - state.θ_old) / Δt)
     return
 end
 
@@ -163,6 +164,7 @@ function jacobian!(
     # dFᵢ/dψᵢ₊₁ = (kΔz⁻¹)|ᵢ₊₁ + dk/dψ|ᵢ₊₁ * (ΔψΔz⁻¹ + 1) * Δzᵢ₊₁ / (Δzᵢ₊₁ + Δzᵢ)
 
     J = linearsolver.J
+    n = linearsolver.n
     dFᵢdψᵢ = J.d  # derivatives of F₁, ... Fₙ with respect to ψ₁, ... ψₙ
     dFᵢ₊₁dψᵢ = J.dl  # derivatives of F₂, ... Fₙ with respect to ψ₁, ... ψₙ₋₁
     dFᵢ₋₁dψᵢ = J.du  # derivatives of F₁, ... Fₙ₋₁ with respect to ψ₂, ... ψₙ
@@ -179,8 +181,8 @@ function jacobian!(
 
     # Then compute the diagonal term
     @. dFᵢdψᵢ = -(state.C * parameters.Δz) / Δt
-    @. dFᵢdψᵢ[1:end-1] += -dFᵢ₊₁dψᵢ
-    @. dFᵢdψᵢ[2:end] += -dFᵢ₋₁dψᵢ
+    @views @. dFᵢdψᵢ[1:end-1] += -dFᵢ₊₁dψᵢ
+    @views @. dFᵢdψᵢ[2:end] += -dFᵢ₋₁dψᵢ
 
     J.d[1] += bottomboundary_jacobian!(state, parameters, parameters.bottomboundary)
     J.d[end] += topboundary_jacobian!(state, parameters, parameters.topboundary)
@@ -188,6 +190,10 @@ function jacobian!(
     return
 end
 
-function isoutofdomain(u, p::DiffEqParams{RichardsParameters, RichardsState}, t)::Bool
+function isoutofdomain(
+    u::Vector{T},
+    p::DiffEqParams{RP,RichardsState},
+    t::Real,
+) where {T,RP}
     return false
 end

@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.11.3"
+julia_version = "1.11.4"
 manifest_format = "2.0"
-project_hash = "4a4a2fc2410bd4a5eecd1f201ba26f501ed18b21"
+project_hash = "012fc51e763af4b79e966135ddc1db5472a256a9"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "e2478490447631aedba0823d4d7a80b2cc8cdb32"
@@ -1457,7 +1457,7 @@ version = "0.3.27+1"
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
-version = "0.8.1+2"
+version = "0.8.1+4"
 
 [[deps.OpenSSL]]
 deps = ["BitFlags", "Dates", "MozillaCACerts_jll", "OpenSSL_jll", "Sockets"]
@@ -2145,9 +2145,9 @@ version = "1.11.0"
 
 [[deps.SparseConnectivityTracer]]
 deps = ["ADTypes", "DocStringExtensions", "FillArrays", "LinearAlgebra", "Random", "SparseArrays"]
-git-tree-sha1 = "6651f4663027f3b30a31429d257185f56a571184"
+git-tree-sha1 = "9603842a7a68464a066b5754e89fc7f810db8ae7"
 uuid = "9f842d2f-2579-4b1d-911e-f412cf18a3f5"
-version = "0.6.13"
+version = "0.6.15"
 
     [deps.SparseConnectivityTracer.extensions]
     SparseConnectivityTracerDataInterpolationsExt = "DataInterpolations"

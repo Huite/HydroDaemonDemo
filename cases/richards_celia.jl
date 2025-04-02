@@ -1,0 +1,121 @@
+##
+using HydroDaemonDemo
+using DifferentialEquations
+using BenchmarkTools
+##
+
+n = 40
+Δz = 1.0  # cm
+
+# Celia case
+
+constitutive = fill(
+    HydroDaemonDemo.Haverkamp(
+        α = 1.611e6,
+        β = 3.96,
+        γ = 4.74,
+        A = 1.175e6,
+        ks = 0.00944,
+        θs = 0.287,
+        θr = 0.075,
+    ),
+    n,
+)
+initial = fill(-61.5, n)
+parameters = HydroDaemonDemo.RichardsParameters(
+    constitutive,
+    fill(Δz, n),
+    HydroDaemonDemo.MeteorologicalForcing([0.0], [0.0], [0.0]),
+    HydroDaemonDemo.HeadBoundary(-61.5, constitutive[1]),
+    HydroDaemonDemo.HeadBoundary(-20.5, constitutive[end]),
+)
+tend = 360.0
+tspan = (0.0, tend)
+
+Δt = 1.0
+saveat = collect(0.0:Δt:tend)
+
+solver = HydroDaemonDemo.NewtonSolver(
+    HydroDaemonDemo.LinearSolverThomas(n),
+    #    relax = HydroDaemonDemo.ScalarRelaxation(0.0),
+    relax = HydroDaemonDemo.CubicLineSearch(),
+)
+implicit_richards = HydroDaemonDemo.ImplicitHydrologicalModel(
+    parameters,
+    initial,
+    solver,
+    tspan,
+    saveat,
+    HydroDaemonDemo.FixedTimeStepper(Δt),
+)
+HydroDaemonDemo.run!(implicit_richards)
+
+function run_again!(model)
+    model.state.ψ .= -61.5
+    HydroDaemonDemo.run!(model)
+    return
+end
+
+@btime run_again!(implicit_richards)
+# O relax
+# 3.7 ms
+
+# Simple line search
+# 5.9 ms
+
+# CubicLineSearch
+# 5.9 ms
+
+##
+
+using LineSearches: BackTracking
+
+solverconfig = HydroDaemonDemo.SolverConfig(
+    1.0,
+    1e-6,
+    1.0,
+    #alg = ImplicitEuler(autodiff=false, nlsolve=NLNewton()),
+    #alg = QNDF(autodiff=false, nlsolve=NLNewton()),
+    alg = Rosenbrock23(autodiff = false),
+    adaptive = true,
+    force_dtmin = false,
+    abstol = 1e-5,
+    reltol = 1e-5,
+    maxiters = 10000,
+)
+
+diffeq_richards = HydroDaemonDemo.DiffEqHydrologicalModel(
+    parameters,
+    initial,
+    tspan,
+    nothing,
+    solverconfig,
+)
+out = HydroDaemonDemo.run!(diffeq_richards)
+
+function run_again!(diffeq_model)
+    diffeq_model.problem.u0 .= -61.5
+    HydroDaemonDemo.run!(diffeq_richards)
+    return
+end
+
+run_again!(diffeq_richards)
+
+
+@btime run_again!(diffeq_richards)
+
+# Relax 0.5
+# QNDF: 4.83 ms
+
+# Relax 0.0
+# ImplicitEuler: 49.8 ms
+# Rosenbrock23: 67.98 ms
+# QNDF: 3.96 ms
+
+# Tsit5: 7.86 ms
+
+##
+
+using Plots
+plot(implicit_richards.saved[:, end])
+plot!(out[:, end])

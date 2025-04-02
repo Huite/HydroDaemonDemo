@@ -9,8 +9,9 @@ function primary(state::Fuse070State)
     return state.S
 end
 
-function righthandside(state::Fuse070State)
-    return state.dS
+function righthandside!(du, state::Fuse070State, parameters::Fuse070Parameters)
+    copyto!(du, state.dS)
+    return
 end
 
 function prepare_state(_::Fuse070Parameters, initial)

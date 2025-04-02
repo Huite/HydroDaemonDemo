@@ -63,8 +63,7 @@ function diffeq_rhs!(du, u, params::DiffEqParams, t)
     copyto!(currentstate, u)
     waterbalance!(params.state, params.parameters)
     # Copy formulated rhs into du
-    rhs = righthandside(params.state)
-    copyto!(du, rhs)
+    righthandside!(du, params.state, params.parameters)
     return
 end
 
