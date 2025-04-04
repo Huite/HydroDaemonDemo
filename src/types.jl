@@ -33,11 +33,11 @@ function synchronize!(state::ImplicitState, parameters)
     error("synchronize! not implemented for $(typeof(state))")
 end
 
-function jacobian!(solver, state::ImplicitState, parameters, Δt)
+function jacobian!(J, state::ImplicitState, parameters, Δt)
     error("jacobian! not implemented for $(typeof(state))")
 end
 
-function residual!(solver, state::ImplicitState, parameters, Δt)
+function residual!(rhs, state::ImplicitState, parameters, Δt)
     error("residual! not implemented for $(typeof(state))")
 end
 

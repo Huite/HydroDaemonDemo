@@ -29,11 +29,6 @@ function primary(state::RichardsState)
     return state.ψ
 end
 
-function righthandside!(du, state::RichardsState, parameters::RichardsParameters)
-    @. du = state.∇q / (parameters.Δz * state.C)
-    return
-end
-
 function prepare_state(p::RichardsParameters, initial)
     n = length(p.constitutive)
     return RichardsState(

@@ -9,11 +9,6 @@ function primary(state::CascadeState)
     return state.S
 end
 
-function righthandside!(du, state::CascadeState, parameters::BucketCascade)
-    copyto!(du, state.dS)
-    return
-end
-
 function prepare_state(p::BucketCascade, initial)
     return CascadeState(copy(initial), zero(initial), copy(initial), zeros(2))
 end

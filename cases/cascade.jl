@@ -1,5 +1,4 @@
 ##
-using Revise
 using HydroDaemonDemo
 using Plots
 using BenchmarkTools
@@ -29,10 +28,6 @@ HydroDaemonDemo.run!(explicit_reservoirs)
 
 ##
 
-#solver = HydroDaemonDemo.NewtonSolver(
-#    HydroDaemonDemo.LinearSolverThomas(n),
-#    relax = HydroDaemonDemo.SimpleLineSearch(a0=1.0, b=0.5, c=1e-3, maxiter=5),
-#)
 solver = HydroDaemonDemo.NewtonSolver(
     HydroDaemonDemo.LinearSolverThomas(n),
     relax = HydroDaemonDemo.CubicLineSearch(
@@ -69,16 +64,14 @@ solverconfig = HydroDaemonDemo.SolverConfig(
 
 diffeq_reservoirs =
     HydroDaemonDemo.DiffEqHydrologicalModel(cascade, initial, tspan, nothing, solverconfig)
-out = HydroDaemonDemo.run!(diffeq_reservoirs)
+HydroDaemonDemo.run!(diffeq_reservoirs)
 
 plot(implicit_reservoirs.saved[1, :])
 plot!(explicit_reservoirs.saved[1, :])
-plot!(out[1, :])
+plot!(diffeq_reservoirs.saved[1, :])
 
 ##
 
-@btime HydroDaemonDemo.run!(explicit_reservoirs);  # 10 us at dt=1.0, 866 us at dt=0.01
-@btime HydroDaemonDemo.run!(implicit_reservoirs);  # 11.9 ms
-@btime HydroDaemonDemo.run!(diffeq_reservoirs);   # 4.8 ms  # EulerImplicit()
-@btime HydroDaemonDemo.run!(diffeq_reservoirs);   # 1.8 ms  # Tsit5()
-# QNDF gives failure
+@btime HydroDaemonDemo.reset_and_run!(explicit_reservoirs, 0.0);  # 10 us at dt=1.0, 866 us at dt=0.01
+@btime HydroDaemonDemo.reset_and_run!(implicit_reservoirs, 0.0);  # 11.9 ms
+@btime HydroDaemonDemo.reset_and_run!(diffeq_reservoirs, 0.0);   # 4.8 ms  # EulerImplicit()

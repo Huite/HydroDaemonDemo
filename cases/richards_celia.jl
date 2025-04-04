@@ -37,8 +37,7 @@ saveat = collect(0.0:Δt:tend)
 
 solver = HydroDaemonDemo.NewtonSolver(
     HydroDaemonDemo.LinearSolverThomas(n),
-    #    relax = HydroDaemonDemo.ScalarRelaxation(0.0),
-    relax = HydroDaemonDemo.CubicLineSearch(),
+    relax = HydroDaemonDemo.ScalarRelaxation(0.0),
 )
 implicit_richards = HydroDaemonDemo.ImplicitHydrologicalModel(
     parameters,
@@ -74,9 +73,9 @@ solverconfig = HydroDaemonDemo.SolverConfig(
     1.0,
     1e-6,
     1.0,
-    #alg = ImplicitEuler(autodiff=false, nlsolve=NLNewton()),
+    alg = ImplicitEuler(autodiff = true, nlsolve = NLNewton()),
     #alg = QNDF(autodiff=false, nlsolve=NLNewton()),
-    alg = Rosenbrock23(autodiff = false),
+    #alg = Rosenbrock23(autodiff = false),
     adaptive = true,
     force_dtmin = false,
     abstol = 1e-5,
@@ -88,21 +87,14 @@ diffeq_richards = HydroDaemonDemo.DiffEqHydrologicalModel(
     parameters,
     initial,
     tspan,
-    nothing,
+    saveat,
     solverconfig,
 )
-out = HydroDaemonDemo.run!(diffeq_richards)
+HydroDaemonDemo.run!(diffeq_richards)
 
-function run_again!(diffeq_model)
-    diffeq_model.problem.u0 .= -61.5
-    HydroDaemonDemo.run!(diffeq_richards)
-    return
-end
+HydroDaemonDemo.reset_and_run!(diffeq_richards, -61.5)
 
-run_again!(diffeq_richards)
-
-
-@btime run_again!(diffeq_richards)
+@btime HydroDaemonDemo.reset_and_run!(diffeq_richards, -61.5)
 
 # Relax 0.5
 # QNDF: 4.83 ms
@@ -118,4 +110,4 @@ run_again!(diffeq_richards)
 
 using Plots
 plot(implicit_richards.saved[:, end])
-plot!(out[:, end])
+plot!(diffeq_richards.saved[:, end])

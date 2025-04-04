@@ -37,14 +37,14 @@ function solve!(newton::NewtonSolver{LS,R,Nothing}, state, parameters, Δt) wher
     # Maintain old state for time stepping.
     copy_state!(state)
     # Compute initial residual
-    residual!(newton.linearsolver, state, parameters, Δt)
+    residual!(newton.linearsolver.rhs, state, parameters, Δt)
 
     for i = 1:newton.maxiter
         # Check the residual immediately for convergence.
         if converged(newton)
             return true, i
         end
-        jacobian!(newton.linearsolver, state, parameters, Δt)
+        jacobian!(newton.linearsolver.J, state, parameters, Δt)
         linearsolve!(newton.linearsolver)
         # The newton step will update the state, synchronize, and recompute
         # residual.
@@ -71,7 +71,7 @@ function solve!(
     # Maintain old state for time stepping.
     copy_state!(state)
     # Synchronize dependent variables.
-    residual!(newton.linearsolver, state, parameters, Δt)
+    residual!(newton.linearsolver.rhs, state, parameters, Δt)
 
     # Initial step
     firststepsize!(newton.pseudotransient.stepselection)
@@ -82,7 +82,7 @@ function solve!(
         if converged(newton)
             return true, i
         end
-        jacobian!(newton.linearsolver, state, parameters, Δt)
+        jacobian!(newton.linearsolver.J, state, parameters, Δt)
 
         # Keep trying smaller time steps until we get a plausible answer.
         # Generally needs a single iteration.

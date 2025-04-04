@@ -64,3 +64,13 @@ function run!(model::HydrologicalModel)
         end
     end
 end
+
+function reset_and_run!(model::HydrologicalModel, initial)
+    # Wipe results
+    model.saved .= 0.0
+    # Set initial state
+    primary_state = primary(model.state)
+    primary_state .= initial
+    run!(model)
+    return
+end

@@ -115,26 +115,15 @@ function explicit_timestep!(state::CascadeState, parameters::BucketCascade, Δt)
     return
 end
 
-function residual!(
-    linearsolver::LinearSolver,
-    state::CascadeState,
-    parameters::BucketCascade,
-    Δt,
-)
+function residual!(rhs, state::CascadeState, parameters::BucketCascade, Δt)
     waterbalance!(state, parameters)
     # Newton-Raphson needs negative residual
-    @. linearsolver.rhs = -(state.dS - (state.S - state.Sold) / Δt)
+    @. rhs = -(state.dS - (state.S - state.Sold) / Δt)
     return
 end
 
-function jacobian!(
-    linearsolver::LinearSolver,
-    state::CascadeState,
-    cascade::BucketCascade,
-    Δt,
-)
+function jacobian!(J, state::CascadeState, cascade::BucketCascade, Δt)
     S = state.S
-    J = linearsolver.J
     dFdSᵢ = J.d
     dFdSᵢ₋₁ = J.dl
     # dFdSᵢ₊₁ = J.du is always zero.
@@ -156,4 +145,9 @@ end
 
 function isoutofdomain(u, p::DiffEqParams{<:BucketCascade,CascadeState}, t)::Bool
     return any(value < 0 for value in u)
+end
+
+function righthandside!(du, state::CascadeState, parameters::BucketCascade)
+    copyto!(du, state.dS)
+    return
 end

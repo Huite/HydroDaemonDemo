@@ -133,14 +133,9 @@ function explicit_timestep!(state::RichardsState, parameters::RichardsParameters
     return
 end
 
-function residual!(
-    linearsolver::LinearSolver,
-    state::RichardsState,
-    parameters::RichardsParameters,
-    Δt,
-)
+function residual!(rhs, state::RichardsState, parameters::RichardsParameters, Δt)
     waterbalance!(state, parameters)
-    @. linearsolver.rhs = -(state.∇q - parameters.Δz * (state.θ - state.θ_old) / Δt)
+    @. rhs = -(state.∇q - parameters.Δz * (state.θ - state.θ_old) / Δt)
     return
 end
 
@@ -151,20 +146,13 @@ end
 
     Use Δt = ∞ for steady-state simulations.
 """
-function jacobian!(
-    linearsolver::LinearSolver,
-    state::RichardsState,
-    parameters::RichardsParameters,
-    Δt,
-)
+function jacobian!(J, state::RichardsState, parameters::RichardsParameters, Δt)
     # dFᵢ/dψᵢ₋₁ = (kΔz⁻¹)|ᵢ₋₁ - dk/dψ|ᵢ₋₁ * (ΔψΔz⁻¹ + 1) * Δzᵢ₋₁ / (Δzᵢ₋₁ + Δzᵢ)
     # dFᵢ/dψᵢ = -CΔz/Δt 
     #          - (kΔz⁻¹)|ᵢ₋₁ + dk/dψ|ᵢ * (ΔψΔz⁻¹ + 1)|ᵢ₋₁ * Δzᵢ / (Δzᵢ₋₁ + Δzᵢ)
     #          - (kΔz⁻¹)|ᵢ₊₁ - dk/dψ|ᵢ * (ΔψΔz⁻¹ + 1)|ᵢ₊₁ * Δzᵢ / (Δzᵢ₊₁ + Δzᵢ)
     # dFᵢ/dψᵢ₊₁ = (kΔz⁻¹)|ᵢ₊₁ + dk/dψ|ᵢ₊₁ * (ΔψΔz⁻¹ + 1) * Δzᵢ₊₁ / (Δzᵢ₊₁ + Δzᵢ)
 
-    J = linearsolver.J
-    n = linearsolver.n
     dFᵢdψᵢ = J.d  # derivatives of F₁, ... Fₙ with respect to ψ₁, ... ψₙ
     dFᵢ₊₁dψᵢ = J.dl  # derivatives of F₂, ... Fₙ with respect to ψ₁, ... ψₙ₋₁
     dFᵢ₋₁dψᵢ = J.du  # derivatives of F₁, ... Fₙ₋₁ with respect to ψ₂, ... ψₙ
@@ -196,4 +184,9 @@ function isoutofdomain(
     t::Real,
 ) where {T,RP}
     return false
+end
+
+function righthandside!(du, state::RichardsState, parameters::RichardsParameters)
+    @. du = state.∇q / (parameters.Δz * state.C)
+    return
 end

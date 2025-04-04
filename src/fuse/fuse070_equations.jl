@@ -27,23 +27,17 @@ function explicit_timestep!(state::Fuse070State, fuse::Fuse070Parameters, Δt)
     return
 end
 
-function residual!(
-    linearsolver::LinearSolver,
-    state::Fuse070State,
-    fuse::Fuse070Parameters,
-    Δt,
-)
+function residual!(rhs, state::Fuse070State, fuse::Fuse070Parameters, Δt)
     waterbalance!(state, fuse)
     # Newton-Raphson use the negative residual
-    @. linearsolver.rhs = -(state.dS - (state.S - state.Sold) / Δt)
+    @. rhs = -(state.dS - (state.S - state.Sold) / Δt)
     return
 end
 
-function jacobian!(linearsolver, state::Fuse070State, fuse::Fuse070Parameters, Δt)
+function jacobian!(J, state::Fuse070State, fuse::Fuse070Parameters, Δt)
     p = state.forcing[1]
     PET = state.forcing[2]
     S1 = state.S[1]
-    J = linearsolver.J
 
     # Compute the terms and their derivatives.
     S⁺ = S1 / (fuse.ϕtens * fuse.S1max)
@@ -66,5 +60,10 @@ function jacobian!(linearsolver, state::Fuse070State, fuse::Fuse070Parameters, �
     J[1, 2] = 0.0
     J[2, 1] = dq12
     J[2, 2] = dqb - 1.0 / Δt
+    return
+end
+
+function righthandside!(du, state::Fuse070State, parameters::Fuse070Parameters)
+    copyto!(du, state.dS)
     return
 end

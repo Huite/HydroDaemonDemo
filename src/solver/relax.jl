@@ -18,7 +18,7 @@ function newton_step!(
     Δt,
 )::Bool
     apply_update!(state, linearsolver, 1.0 - relaxation.relax)
-    residual!(linearsolver, state, parameters, Δt)
+    residual!(linearsolver.rhs, state, parameters, Δt)
     return true
 end
 
@@ -177,7 +177,7 @@ function newton_step!(ls::LineSearch, linearsolver, state, parameters, Δt)
         # Take a step
         apply_update!(state, linearsolver, α₂)
         synchronize!(state, parameters)
-        residual!(linearsolver, state, parameters, Δt)
+        residual!(linearsolver.rhs, state, parameters, Δt)
         L2₂ = norm(linearsolver.rhs)
 
         # Armijo condition for sufficient decrease
@@ -198,6 +198,6 @@ function newton_step!(ls::LineSearch, linearsolver, state, parameters, Δt)
     end
     # Achieved maximum iterations, use αbest.
     apply_update!(state, linearsolver, αbest)
-    residual!(linearsolver, state, parameters, Δt)
+    residual!(linearsolver.rhs, state, parameters, Δt)
     return false
 end
