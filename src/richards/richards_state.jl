@@ -98,44 +98,8 @@ function synchronize!(state::RichardsState, parameters)
     # Moisture content
     @. state.θ = moisture_content(state.ψ, parameters.constitutive)
 
-    #    n = length(state.ψ)
-    #    for i=(1:n-1)
-    #        Δz_lower = parameters.Δz[i]
-    #        k_lower = state.k[i]
-    #        Δz_upper = parameters.Δz[i+1]
-    #        k_upper = state.k[i+1]
-    #        state.Δψ[i] = (state.ψ[i+1] - state.ψ[i])
-    #        state.k_inter[i] = (k_lower * Δz_lower + k_upper * Δz_upper) / (Δz_lower + Δz_upper)
-    #        state.kΔz⁻¹[i] = state.k_inter[i] / (0.5 * Δz_lower + 0.5 * Δz_upper)
-    #        state.kΔψΔz⁻¹[i] = state.Δψ[i] * state.kΔz⁻¹[i]
-    #        state.ΔψΔz⁻¹[i] = state.Δψ[i] / (0.5 * Δz_lower + 0.5 * Δz_upper) + 1.0
-    #    end
     return
 end
-
-#function synchronize!(state::RichardsState, parameters)
-#    # Conductance
-#    @. state.k = conductivity(state.ψ, parameters.constitutive)
-#    @. state.dk = dconductivity(state.ψ, parameters.constitutive)
-#
-#    k_lower = state.k_lower
-#    Δz_lower = state.Δzᵢ₋₁
-#    k_upper = state.k_upper
-#    Δz_upper = state.Δzᵢ₊₁
-#
-#    @. state.Δψ = (state.ψ[2:end] - state.ψ[1:end-1])
-#    @. state.k_inter = (k_lower * Δz_lower + k_upper * Δz_upper) / (Δz_lower + Δz_upper)
-#    @. state.kΔz⁻¹ = state.k_inter / (0.5 * Δz_lower + 0.5 * Δz_upper)
-#    @. state.kΔψΔz⁻¹ = state.Δψ * state.kΔz⁻¹
-#    @. state.ΔψΔz⁻¹ = state.Δψ / (0.5 * Δz_lower + 0.5 * Δz_upper) + 1.0
-#
-#    # Moisture capacity
-#    @. state.C = specific_moisture_capacity(state.ψ, parameters.constitutive)
-#
-#    # Moisture content
-#    @. state.θ = moisture_content(state.ψ, parameters.constitutive)
-#    return
-#end
 
 function compute_timestep_size(cfl::CFLTimeStepper, state::RichardsState, parameters, Δt)
     # Maximum diffusivity-based Δt
