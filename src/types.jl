@@ -23,16 +23,6 @@ function righthandside(state::State)
     error("righthandside not implemented for $(typeof(state))")
 end
 
-# For explicit states
-function synchronize!(state::ExplicitState, parameters)
-    error("synchronize! not implemented for $(typeof(state))")
-end
-
-# For implicit states
-function synchronize!(state::ImplicitState, parameters)
-    error("synchronize! not implemented for $(typeof(state))")
-end
-
 function jacobian!(J, state::ImplicitState, parameters, Δt)
     error("jacobian! not implemented for $(typeof(state))")
 end

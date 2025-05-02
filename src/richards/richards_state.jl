@@ -34,7 +34,7 @@ function prepare_state(p::RichardsParameters, initial)
     return RichardsState(
         copy(initial),  # ψ
         zeros(n),  # ∇q
-        zeros(n),  # θ
+        moisture_content.(initial, p.constitutive),  # θ
         zeros(n),  # ψ_old
         zeros(n),  # θ_old
         zeros(n),  # C
@@ -70,35 +70,6 @@ function rewind!(state::RichardsState)
     copyto!(state.ψ, state.ψ_old)
     # TODO: this is overwritten anyway in a synchronize?
     # copyto!(state.θ, state.θ_old)
-end
-
-"""
-    Synchronize the dependent variables (k, C, θ) based on ψ.
-"""
-function synchronize!(state::RichardsState, parameters)
-    @. state.k = conductivity(state.ψ, parameters.constitutive)
-    @. state.dk = dconductivity(state.ψ, parameters.constitutive)
-
-    k_lower = @view(state.k[1:end-1])
-    Δz_lower = @view(parameters.Δz[1:end-1])
-    k_upper = @view(state.k[2:end])
-    Δz_upper = @view(parameters.Δz[2:end])
-    ψ_upper = @view state.ψ[2:end]
-    ψ_lower = @view state.ψ[1:end-1]
-
-    @. state.Δψ = ψ_upper - ψ_lower
-    @. state.k_inter = (k_lower * Δz_lower + k_upper * Δz_upper) / (Δz_lower + Δz_upper)
-    @. state.kΔz⁻¹ = state.k_inter / (0.5 * Δz_lower + 0.5 * Δz_upper)
-    @. state.kΔψΔz⁻¹ = state.Δψ * state.kΔz⁻¹
-    @. state.ΔψΔz⁻¹ = state.Δψ / (0.5 * Δz_lower + 0.5 * Δz_upper) + 1.0
-
-    # Moisture capacity
-    @. state.C = specific_moisture_capacity(state.ψ, parameters.constitutive)
-
-    # Moisture content
-    @. state.θ = moisture_content(state.ψ, parameters.constitutive)
-
-    return
 end
 
 function compute_timestep_size(cfl::CFLTimeStepper, state::RichardsState, parameters, Δt)

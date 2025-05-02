@@ -20,10 +20,6 @@ function force!(state::Fuse070State, parameters, t)
     return
 end
 
-function synchronize!(state::Fuse070State, parameters)
-    return
-end
-
 function apply_update!(state::Fuse070State, linearsolver, a)
     @. state.S += a * linearsolver.ϕ
     return

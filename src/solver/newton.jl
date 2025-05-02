@@ -4,7 +4,6 @@
 
 Requires a state type with the following associated methods:
 
-* synchronize!
 * residual!
 * jacobian!
 * copy_state!

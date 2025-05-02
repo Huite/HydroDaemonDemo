@@ -49,13 +49,6 @@ implicit_richards = HydroDaemonDemo.ImplicitHydrologicalModel(
 )
 HydroDaemonDemo.run!(implicit_richards)
 
-function run_again!(model)
-    model.state.ψ .= -61.5
-    HydroDaemonDemo.run!(model)
-    return
-end
-
-@btime run_again!(implicit_richards)
 # O relax
 # 3.7 ms
 
@@ -73,7 +66,7 @@ solverconfig = HydroDaemonDemo.SolverConfig(
     1.0,
     1e-6,
     1.0,
-    alg = ImplicitEuler(autodiff = true, nlsolve = NLNewton()),
+    alg = ImplicitEuler(autodiff = false, nlsolve = NLNewton()),
     #alg = QNDF(autodiff=false, nlsolve=NLNewton()),
     #alg = Rosenbrock23(autodiff = false),
     adaptive = true,

@@ -23,10 +23,6 @@ function create_saveat(saveat, forcing, tspan)::Vector{Float64}
 end
 
 function run!(model::HydrologicalModel)
-    # Make sure state is up-to-date with initial state and parameters.
-    synchronize!(model.state, model.parameters)
-
-    tstart, tend = model.tspan
     tstart, tend = model.tspan
     Δt = model.timestepper.Δt0
     t = tstart

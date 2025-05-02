@@ -176,7 +176,6 @@ function newton_step!(ls::LineSearch, linearsolver, state, parameters, Δt)
     for _ = 1:ls.maxiter
         # Take a step
         apply_update!(state, linearsolver, α₂)
-        synchronize!(state, parameters)
         residual!(linearsolver.rhs, state, parameters, Δt)
         L2₂ = norm(linearsolver.rhs)
 

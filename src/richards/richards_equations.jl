@@ -113,7 +113,28 @@ end
 # Full column
 
 function waterbalance!(state::RichardsState, parameters::RichardsParameters)
-    synchronize!(state, parameters)
+    @. state.k = conductivity(state.ψ, parameters.constitutive)
+    @. state.dk = dconductivity(state.ψ, parameters.constitutive)
+
+    k_lower = @view(state.k[1:end-1])
+    Δz_lower = @view(parameters.Δz[1:end-1])
+    k_upper = @view(state.k[2:end])
+    Δz_upper = @view(parameters.Δz[2:end])
+    ψ_upper = @view state.ψ[2:end]
+    ψ_lower = @view state.ψ[1:end-1]
+
+    @. state.Δψ = ψ_upper - ψ_lower
+    @. state.k_inter = (k_lower * Δz_lower + k_upper * Δz_upper) / (Δz_lower + Δz_upper)
+    @. state.kΔz⁻¹ = state.k_inter / (0.5 * Δz_lower + 0.5 * Δz_upper)
+    @. state.kΔψΔz⁻¹ = state.Δψ * state.kΔz⁻¹
+    @. state.ΔψΔz⁻¹ = state.Δψ / (0.5 * Δz_lower + 0.5 * Δz_upper) + 1.0
+
+    # Moisture capacity
+    @. state.C = specific_moisture_capacity(state.ψ, parameters.constitutive)
+
+    # Moisture content
+    @. state.θ = moisture_content(state.ψ, parameters.constitutive)
+
     # Internodal flows
     @. state.∇q = 0.0
     @views @. state.∇q[2:end] -= (state.kΔψΔz⁻¹ + state.k_inter)  # i-1 terms

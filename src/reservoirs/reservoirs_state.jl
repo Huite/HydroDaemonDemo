@@ -13,10 +13,6 @@ function prepare_state(p::BucketCascade, initial)
     return CascadeState(copy(initial), zero(initial), copy(initial), zeros(2))
 end
 
-function synchronize!(state::CascadeState, parameters)
-    return
-end
-
 function apply_update!(state::CascadeState, linearsolver, a)
     @. state.S += a * linearsolver.ϕ
     return

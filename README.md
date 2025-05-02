@@ -174,12 +174,11 @@ Defining a model requires:
   parameters and the (meteorological) forcing time series.
 * A `prepare_state` method which takes the parameters, an initial state vector, and the forcing and returns the appropriate `State` structure.
 
-`ExplicitHydrologicalModel` is the simplest and requires only `synchronize!` and a `rhs!`
+`ExplicitHydrologicalModel` is the simplest and requires only a `rhs!`
 function which computes the derivative `du/dt`.
 
 `ImplicitHydrologicalModel` is more involved, it requires:
 
-* `synchronize!`
 * `rhs!`
 * `residual!` (a wrapper around `rhs!`)
 * `jacobian!`
