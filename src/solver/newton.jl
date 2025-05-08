@@ -34,7 +34,7 @@ end
 
 function solve!(newton::NewtonSolver{LS,R,Nothing}, state, parameters, Δt) where {LS,R}
     # Maintain old state for time stepping.
-    copy_state!(state)
+    copy_state!(state, parameters)
     # Compute initial residual
     residual!(newton.linearsolver.rhs, state, parameters, Δt)
 
@@ -68,7 +68,7 @@ function solve!(
     Δt,
 ) where {LS,R,PTC<:PseudoTransientContinuation}
     # Maintain old state for time stepping.
-    copy_state!(state)
+    copy_state!(state, parameters)
     # Synchronize dependent variables.
     residual!(newton.linearsolver.rhs, state, parameters, Δt)
 

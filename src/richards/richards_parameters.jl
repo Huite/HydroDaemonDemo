@@ -11,9 +11,11 @@ struct RichardsParameters{C,T,B} <: Parameters
     θ::Vector{Float}
     C::Vector{Float}
     k::Vector{Float}
+    dk::Vector{Float}
     # Internodal data, all size n - 1!
     k_inter::Vector{Float}
     Δψ::Vector{Float}  # ψᵢ - ψᵢ₋₁
+    currentforcing::Vector{Float}  # P, ET
 end
 
 function RichardsParameters(constitutive, Δz, forcing, bottomboundary, topboundary)
@@ -28,10 +30,12 @@ function RichardsParameters(constitutive, Δz, forcing, bottomboundary, topbound
         topboundary,
         n,
         zeros(n),  # ∇q
-        moisture_content.(initial, p.constitutive),  # θ
+        zeros(n),  # θ
         zeros(n),  # C
         zeros(n),  # k
+        zeros(n),  # dk
         zeros(n - 1),  # k_inter
         zeros(n - 1),  # Δψ
+        zeros(2),
     )
 end

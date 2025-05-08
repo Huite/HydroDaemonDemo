@@ -8,6 +8,7 @@ struct Fuse070Parameters <: Parameters
     m::Float
     ω::Float
     forcing::MeteorologicalForcing
+    currentforcing::Vector{Float}
 end
 
 function Fuse070Parameters(forcing)
@@ -19,5 +20,5 @@ function Fuse070Parameters(forcing)
     v = 0.1
     m = 0.01
     ω = S1max * 0.05  # from FUSE paper
-    return Fuse070Parameters(ϕtens, S1max, b, ku, c, v, m, ω, forcing)
+    return Fuse070Parameters(ϕtens, S1max, b, ku, c, v, m, ω, forcing, zeros(2))
 end

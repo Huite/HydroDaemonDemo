@@ -26,7 +26,7 @@ function residual!(rhs, state::ImplicitState, parameters, Δt)
     error("residual! not implemented for $(typeof(state))")
 end
 
-function copy_state!(state::ImplicitState)
+function copy_state!(state::ImplicitState, parameters::Parameters)
     error("copy_state! not implemented for $(typeof(state))")
 end
 

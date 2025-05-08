@@ -18,15 +18,11 @@ end
 
 # Precipitation
 
-function topflux(ψ, parameters::RichardsParameters, forcing::MeteorologicalForcing)
+function topflux(ψ, parameters::RichardsParameters)
     return parameters.currentforcing[1]
 end
 
-function topboundary_jacobian!(
-    ψ,
-    parameters::RichardsParameters,
-    forcing::MeteorologicalForcing,
-)
+function topboundary_jacobian!(ψ, parameters::RichardsParameters)
     return 0.0
 end
 
@@ -85,21 +81,8 @@ end
 # Full column
 
 function waterbalance!(ψ, parameters::RichardsParameters)
-    (;
-        constitutive,
-        Δz,
-        Δz⁻¹,
-        bottomboundary,
-        topboundary,
-        n,
-        ∇q,
-        θ,
-        C,
-        k,
-        k_inter,
-        Δψ,
-        currentforcing,
-    ) = parameters
+    (; constitutive, Δz, Δz⁻¹, bottomboundary, topboundary, n, ∇q, θ, C, k, k_inter, Δψ) =
+        parameters
     @. k = conductivity(ψ, constitutive)
     @. C = specific_moisture_capacity(ψ, constitutive)
     @. θ = moisture_content(ψ, constitutive)
@@ -117,7 +100,7 @@ function waterbalance!(ψ, parameters::RichardsParameters)
     # Boundary conditions
     ∇q[1] += bottomflux(ψ, parameters, bottomboundary)
     ∇q[end] += topflux(ψ, parameters, topboundary)
-    ∇q[end] += topflux(ψ, parameters, currentforcing)
+    ∇q[end] += topflux(ψ, parameters)
     return
 end
 
@@ -129,23 +112,12 @@ end
 
 function residual!(rhs, state::RichardsState, parameters::RichardsParameters, Δt)
     waterbalance!(state.ψ, parameters)
-    @. rhs = -(parameters.Δz * (parameters.θ - state.θ_old) / Δt + parameters.∇q)
+    @. rhs = -(parameters.∇q - parameters.Δz * (parameters.θ - state.θ_old) / Δt)
     return
 end
 
 function dwaterbalance!(J, ψ, parameters::RichardsParameters)
-    (;
-        constitutive,
-        Δz,
-        Δz⁻¹,
-        bottomboundary,
-        topboundary,
-        n,
-        k_inter,
-        Δψ,
-        dk,
-        currentforcing,
-    ) = parameters
+    (; constitutive, Δz, Δz⁻¹, bottomboundary, topboundary, n, k_inter, Δψ, dk) = parameters
     @. dk = dconductivity(ψ, constitutive)
 
     dFᵢdψᵢ = J.d  # derivatives of F₁, ... Fₙ with respect to ψ₁, ... ψₙ
@@ -165,9 +137,9 @@ function dwaterbalance!(J, ψ, parameters::RichardsParameters)
     @views @. dFᵢdψᵢ[1:end-1] += -dFᵢ₊₁dψᵢ
     @views @. dFᵢdψᵢ[2:end] += -dFᵢ₋₁dψᵢ
 
-    J.d[1] += bottomboundary_jacobian!(state, parameters, bottomboundary)
-    J.d[end] += topboundary_jacobian!(state, parameters, topboundary)
-    J.d[end] += topboundary_jacobian!(state, parameters, currentforcing)
+    J.d[1] += bottomboundary_jacobian!(ψ, parameters, bottomboundary)
+    J.d[end] += topboundary_jacobian!(ψ, parameters, topboundary)
+    J.d[end] += topboundary_jacobian!(ψ, parameters)
     return
 end
 
@@ -180,38 +152,24 @@ end
 """
 function jacobian!(J, state, parameters::RichardsParameters, Δt)
     dwaterbalance!(J, state.ψ, parameters)
-    J.d .-= (parameters.C * parameters.Δz) / Δt
+    @. J.d -= (parameters.C * parameters.Δz) / Δt
     return
 end
 
 # Wrapped for DifferentialEquations
 
-function waterbalance!(
-    dψ,
-    ψ,
-    p::DiffEqParams{RichardsParameters{C} where C<:ConstitutiveRelationships},
-    t,
-)
+function waterbalance!(dψ, ψ, p::DiffEqParams{<:RichardsParameters}, t)
     parameters = p.parameters
     waterbalance!(ψ, parameters)
     @. dψ .= 1.0 / (parameters.Δz * parameters.C) * parameters.∇q
     return
 end
 
-function dwaterbalance!(
-    J,
-    ψ,
-    p::DiffEqParams{RichardsParameters{C} where C<:ConstitutiveRelationships},
-    t,
-)
+function dwaterbalance!(J, ψ, p::DiffEqParams{<:RichardsParameters}, t)
     dwaterbalance!(J, ψ, p.parameters)
     return
 end
 
-function isoutofdomain(
-    u::Vector{T},
-    p::DiffEqParams{RichardsParameters{C}},
-    t::Real,
-) where {T,C}
+function isoutofdomain(u, p::DiffEqParams{<:RichardsParameters}, t)
     return false
 end

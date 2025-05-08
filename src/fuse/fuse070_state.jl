@@ -17,7 +17,7 @@ function apply_update!(state::Fuse070State, linearsolver, a)
     return
 end
 
-function copy_state!(state::Fuse070State)
+function copy_state!(state::Fuse070State, _)
     copyto!(state.Sold, state.S)
     return
 end

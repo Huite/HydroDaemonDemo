@@ -17,7 +17,7 @@ function apply_update!(state::CascadeState, linearsolver, a)
     return
 end
 
-function copy_state!(state::CascadeState)
+function copy_state!(state::CascadeState, _)
     copyto!(state.Sold, state.S)
     return
 end

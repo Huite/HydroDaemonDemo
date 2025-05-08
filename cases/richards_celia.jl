@@ -49,6 +49,8 @@ implicit_richards = HydroDaemonDemo.ImplicitHydrologicalModel(
 )
 HydroDaemonDemo.run!(implicit_richards)
 
+@btime HydroDaemonDemo.reset_and_run!(implicit_richards, -61.5)
+
 # O relax
 # 3.7 ms
 
@@ -66,12 +68,13 @@ solverconfig = HydroDaemonDemo.SolverConfig(
     dt = 1.0,
     dtmin = 1e-6,
     dtmax = 1.0,
-    alg = ImplicitEuler(autodiff = false, nlsolve = NLNewton()),
+    alg = QNDF(autodiff = false, nlsolve = NLNewton()),
     adaptive = true,
     force_dtmin = false,
     abstol = 1e-5,
     reltol = 1e-5,
     maxiters = 10000,
+    analytic_jacobian = true,
 )
 
 diffeq_richards = HydroDaemonDemo.DiffEqHydrologicalModel(

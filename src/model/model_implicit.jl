@@ -47,7 +47,7 @@ First order implicit (Euler Backward) time integration, with optional:
 * Pseudo-transient continuation (PTC) for steady-state
 """
 function timestep!(model::ImplicitHydrologicalModel, Δt)
-    copy_state!(model.state)
+    copy_state!(model.state, model.parameters)
     converged, n_newton_iter = solve!(model.solver, model.state, model.parameters, Δt)
 
     while !converged

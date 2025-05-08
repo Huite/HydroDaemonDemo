@@ -1,4 +1,4 @@
-struct RichardsState
+struct RichardsState <: State
     ψ::Vector{Float}
     ψ_old::Vector{Float}
     θ_old::Vector{Float}
@@ -22,9 +22,10 @@ function apply_update!(state::RichardsState, linearsolver, a)
     return
 end
 
-function copy_state!(state::RichardsState)
+function copy_state!(state::RichardsState, parameters::RichardsParameters)
     copyto!(state.ψ_old, state.ψ)
-    copyto!(state.θ_old, state.θ)
+    state.θ_old .= moisture_content.(state.ψ_old, parameters.constitutive)
+    return
 end
 
 function rewind!(state::RichardsState)
