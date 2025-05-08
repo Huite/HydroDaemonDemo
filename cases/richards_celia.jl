@@ -63,12 +63,10 @@ HydroDaemonDemo.run!(implicit_richards)
 using LineSearches: BackTracking
 
 solverconfig = HydroDaemonDemo.SolverConfig(
-    1.0,
-    1e-6,
-    1.0,
+    dt=1.0,
+    dtmin=1e-6,
+    dtmax=1.0,
     alg = ImplicitEuler(autodiff = false, nlsolve = NLNewton()),
-    #alg = QNDF(autodiff=false, nlsolve=NLNewton()),
-    #alg = Rosenbrock23(autodiff = false),
     adaptive = true,
     force_dtmin = false,
     abstol = 1e-5,

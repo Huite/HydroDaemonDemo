@@ -51,10 +51,10 @@ HydroDaemonDemo.run!(implicit_reservoirs)
 ##
 
 solverconfig = HydroDaemonDemo.SolverConfig(
-    1.0 * DAY,
-    1e-6 * DAY,
-    1.0 * DAY;
-    alg = Tsit5(),
+    dt = 1.0 * DAY,
+    dtmin = 1e-6 * DAY,
+    dtmax = 1.0 * DAY;
+    alg = ImplicitEuler(autodiff = false),
     adaptive = true,
     force_dtmin = false,
     abstol = 1e-3,

@@ -19,43 +19,18 @@ function update_forcing!(integrator)
     return
 end
 
-struct SolverConfig
+@kwdef struct SolverConfig
     alg::Any
-    adaptive::Bool
     dt::Float
     dtmin::Float
     dtmax::Float
-    force_dtmin::Bool
-    abstol::Float
-    reltol::Float
-    maxiters::Int
-    analytic_jacobian::Bool
-end
-
-function SolverConfig(
-    dt,
-    dtmin,
-    dtmax;
-    alg = Tsit5(),
-    adaptive = true,
-    force_dtmin = false,
-    abstol = 1e-6,
-    reltol = 1e-6,
-    maxiters = 100,
-    analytic_jacobian = false,
-)
-    return SolverConfig(
-        alg,
-        adaptive,
-        dt,
-        dtmin,
-        dtmax,
-        force_dtmin,
-        abstol,
-        reltol,
-        maxiters,
-        analytic_jacobian,
-    )
+    adaptive::Bool = true
+    force_dtmin::Bool = false
+    abstol::Float = 1e-6
+    reltol::Float = 1e-6
+    maxiters::Int = 100
+    autodiff::Bool = true
+    analytic_jacobian::Bool = false
 end
 
 struct DiffEqHydrologicalModel{T}
@@ -113,14 +88,6 @@ function DiffEqHydrologicalModel(
 
     callbacks = CallbackSet(forcing_callback, save_callback)
     u0 = primary(state)
-
-    #    if solverconfig.analytic_jacobian
-    #        J = Tridiagonal(zeros(nstate - 1), zeros(nstate), zeros(nstate - 1))
-    #        f = ODEFunction(diffeq_rhs!; jac=diffeq_jacobian!, jac_prototype=J)
-    #    else
-    #       linear = nothing
-    #        f = diffeq_rhs!
-    #    end
 
     params = DiffEqParams(parameters, state, savedresults)
     problem = ODEProblem(diffeq_rhs!, u0, tspan, params)
