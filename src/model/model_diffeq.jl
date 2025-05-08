@@ -7,15 +7,14 @@ struct SavedResults
     save_idx::Base.RefValue{Int}
 end
 
-struct DiffEqParams{P,S}
+struct DiffEqParams{P}
     parameters::P
-    state::S
     results::SavedResults
 end
 
 function update_forcing!(integrator)
     (; p, t) = integrator
-    force!(p.state, p.parameters, t)
+    force!(p.parameters, t)
     return
 end
 
@@ -39,21 +38,6 @@ struct DiffEqHydrologicalModel{T}
     saved::Matrix{Float}
 end
 
-function diffeq_rhs!(du, u, params::DiffEqParams, t)
-    # Copy u into current state
-    currentstate = primary(params.state)
-    copyto!(currentstate, u)
-    waterbalance!(params.state, params.parameters)
-    # Copy formulated rhs into du
-    righthandside!(du, params.state, params.parameters)
-    return
-end
-
-function diffeq_jacobian!(J, u, p::DiffEqParams, t, γ)
-    jacobian!(J, p.state, p.parameters, γ)
-    return
-end
-
 function save_state!(integrator)
     (; u, p) = integrator
     idx = p.results.save_idx[]
@@ -74,9 +58,7 @@ function DiffEqHydrologicalModel(
     saveat = create_saveat(saveat, forcing, tspan)
     pushfirst!(saveat, tstart)
 
-    state = prepare_state(parameters, initial)
-
-    nstate = length(primary(state))
+    nstate = length(initial)
     nsave = length(saveat)
     saved = zeros(nstate, nsave)
     savedresults = SavedResults(saved, Ref(1))
@@ -87,10 +69,16 @@ function DiffEqHydrologicalModel(
         PresetTimeCallback(forcing.t, update_forcing!; save_positions = (false, false))
 
     callbacks = CallbackSet(forcing_callback, save_callback)
-    u0 = primary(state)
+    params = DiffEqParams(parameters, savedresults)
 
-    params = DiffEqParams(parameters, state, savedresults)
-    problem = ODEProblem(diffeq_rhs!, u0, tspan, params)
+    J = Tridiagonal(zeros(nstate - 1), zeros(nstate), zeros(nstate - 1))
+    if solverconfig.analytic_jacobian
+        f = ODEFunction(waterbalance!; jac = dwaterbalance!, jac_prototype = J)
+    else
+        f = ODEFunction(waterbalance!; jac_prototype = J)
+    end
+
+    problem = ODEProblem(f, initial, tspan, params)
 
     integrator = init(
         problem,

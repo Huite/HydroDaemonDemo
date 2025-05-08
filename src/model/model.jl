@@ -37,7 +37,7 @@ function run!(model::HydrologicalModel)
     while (t < tend) && (!isapprox(t, tend))
         # New forcing
         if isapprox(t, tforce)
-            force!(model.state, model.parameters, t)
+            force!(model.parameters, t)
             force_index += 1
             tforce =
                 (force_index <= length(model.parameters.forcing.t)) ?

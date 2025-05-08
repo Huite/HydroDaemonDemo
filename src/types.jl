@@ -7,7 +7,6 @@ abstract type ExplicitState <: State end
 abstract type ImplicitState <: State end
 
 # Model specific types
-abstract type Bucket end
 abstract type ConstitutiveRelationships end
 
 
@@ -17,10 +16,6 @@ end
 
 function primary(state::State)
     error("primary not implemented for $(typeof(state))")
-end
-
-function righthandside(state::State)
-    error("righthandside not implemented for $(typeof(state))")
 end
 
 function jacobian!(J, state::ImplicitState, parameters, Δt)

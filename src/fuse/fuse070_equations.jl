@@ -1,7 +1,6 @@
-function waterbalance!(state::Fuse070State, fuse::Fuse070Parameters)
-    p = state.forcing[1]
-    PET = state.forcing[2]
-    S = state.S
+function waterbalance!(dS, S, fuse::Fuse070Parameters)
+    p = fuse.currentforcing[1]
+    PET = fuse.currentforcing[2]
 
     S1 = S[1]
     S2 = S[2]
@@ -14,14 +13,14 @@ function waterbalance!(state::Fuse070State, fuse::Fuse070Parameters)
     qufof = (p - qsx) * activation(S1, fuse.S1max)
     qb = fuse.v * S2
 
-    state.dS[1] = p - qsx - e1 - q12 - qufof
-    state.dS[2] = q12 - qb
+    dS[1] = p - qsx - e1 - q12 - qufof
+    dS[2] = q12 - qb
     return
 end
 
-
 function explicit_timestep!(state::Fuse070State, fuse::Fuse070Parameters, Δt)
-    waterbalance!(state, fuse)
+    (; dS, S) = state
+    waterbalance!(dS, S, parameters)
     @. state.S += state.dS * Δt
     @. state.S = max(state.S, 0)
     return
@@ -34,10 +33,10 @@ function residual!(rhs, state::Fuse070State, fuse::Fuse070Parameters, Δt)
     return
 end
 
-function jacobian!(J, state::Fuse070State, fuse::Fuse070Parameters, Δt)
-    p = state.forcing[1]
-    PET = state.forcing[2]
-    S1 = state.S[1]
+function dwaterbalance!(J, S, fuse::Fuse070Parameters)
+    p = fuse.currentforcing[1]
+    PET = fuse.currentforcing[2]
+    S1 = S[1]
 
     # Compute the terms and their derivatives.
     S⁺ = S1 / (fuse.ϕtens * fuse.S1max)
@@ -56,14 +55,32 @@ function jacobian!(J, state::Fuse070State, fuse::Fuse070Parameters, Δt)
     dqb = -fuse.v
 
     # Fill terms in the Jacobian
-    J[1, 1] = -de1 - dq12 - dqsx - dqufof - 1.0 / Δt
+    J[1, 1] = -de1 - dq12 - dqsx - dqufof
     J[1, 2] = 0.0
     J[2, 1] = dq12
-    J[2, 2] = dqb - 1.0 / Δt
+    J[2, 2] = dqb - 1.0
     return
 end
 
-function righthandside!(du, state::Fuse070State, parameters::Fuse070Parameters)
-    copyto!(du, state.dS)
+function jacobian!(J, state::Fuse070State, fuse::Fuse070Parameters, Δt)
+    dwaterbalance!(J, state.S, fuse)
+    J[1, 1] .-= 1.0 / Δt
+    J[2, 2] .-= 1.0 / Δt
     return
+end
+
+# Wrapped for DifferentialEquations.jl
+
+function waterbalance!(dS, S, p::DiffEqParams{Fuse070Parameters}, t)
+    waterbalance!(dS, S, p.parameters)
+    return
+end
+
+function dwaterbalance!(J, S, p::DiffEqParams{Fuse070Parameters}, t)
+    dwaterbalance!(J, S, p)
+    return
+end
+
+function isoutofdomain(u, p::DiffEqParams{Fuse070Parameters}, t)::Bool
+    return any(value < 0 for value in u)
 end

@@ -1,27 +1,7 @@
-"""
-This struct holds the mutable members of the Richards 1D simulation.
-"""
-
-struct RichardsState <: State
+struct RichardsState
     ψ::Vector{Float}
-    ∇q::Vector{Float}  # ∇q/dt
-    θ::Vector{Float}
     ψ_old::Vector{Float}
     θ_old::Vector{Float}
-    # specific moisture capacity
-    C::Vector{Float}
-    # conductivity
-    k::Vector{Float}
-    # Internodal data, all size n - 1!
-    k_inter::Vector{Float}
-    Δψ::Vector{Float}  # ψᵢ - ψᵢ₋₁
-    kΔz⁻¹::Vector{Float}  # k/Δz
-    ΔψΔz⁻¹::Vector{Float}  # Δψ/Δz
-    kΔψΔz⁻¹::Vector{Float}  # kΔψ/Δz
-    # Newton-Raphson work array, size n
-    dk::Vector{Float}  # dk/dψ
-    # Forcing, size 2
-    forcing::Vector{Float}
 end
 
 """Return the primary state."""
@@ -30,30 +10,11 @@ function primary(state::RichardsState)
 end
 
 function prepare_state(p::RichardsParameters, initial)
-    n = length(p.constitutive)
     return RichardsState(
         copy(initial),  # ψ
-        zeros(n),  # ∇q
-        moisture_content.(initial, p.constitutive),  # θ
-        zeros(n),  # ψ_old
-        zeros(n),  # θ_old
-        zeros(n),  # C
-        zeros(n),  # k
-        zeros(n - 1),  # k_inter
-        zeros(n - 1),  # Δψ
-        zeros(n - 1),  # kΔz⁻¹
-        zeros(n - 1),  # ΔψΔz⁻¹
-        zeros(n - 1),  # kΔψΔz⁻¹
-        zeros(n),  # dk
-        zeros(2),
+        copy(initial),  # ψ_old,
+        zero(initial),
     )
-end
-
-function force!(state::RichardsState, parameters, t)
-    p, e = find_rates(parameters.forcing, t)
-    state.forcing[1] = p
-    state.forcing[2] = e
-    return
 end
 
 function apply_update!(state::RichardsState, linearsolver, a)

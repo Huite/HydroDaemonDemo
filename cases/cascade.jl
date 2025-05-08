@@ -12,8 +12,7 @@ n = 5
 a = 1e-8
 b = 1.5
 forcing = HydroDaemonDemo.read_forcing("cases/forcing.csv")
-cascade =
-    HydroDaemonDemo.bucket_cascade_analytic(fill(area, n), fill(a, n), fill(b, n), forcing)
+cascade = HydroDaemonDemo.BucketCascade(fill(area, n), fill(a, n), fill(b, n), forcing)
 initial = zeros(5)
 tspan = (0.0, 100.0 * DAY)
 
@@ -52,14 +51,15 @@ HydroDaemonDemo.run!(implicit_reservoirs)
 
 solverconfig = HydroDaemonDemo.SolverConfig(
     dt = 1.0 * DAY,
-    dtmin = 1e-6 * DAY,
+    dtmin = 1.0,
     dtmax = 1.0 * DAY;
-    alg = ImplicitEuler(autodiff = false),
+    alg = ImplicitEuler(),
     adaptive = true,
     force_dtmin = false,
     abstol = 1e-3,
     reltol = 1e-3,
     maxiters = 10000,
+    analytic_jacobian = false,
 )
 
 diffeq_reservoirs =

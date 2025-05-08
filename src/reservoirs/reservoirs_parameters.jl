@@ -1,24 +1,21 @@
-struct BucketCascade{B<:Bucket} <: Parameters
-    buckets::Vector{B}
+struct Bucket
+    area::Float
+    a::Float
+    b::Float
+end
+
+struct BucketCascade <: Parameters
+    buckets::Vector{Bucket}
     forcing::MeteorologicalForcing
+    currentforcing::Vector{Float}
 end
 
-function bucket_cascade_analytic(
+function BucketCascade(
     area::Vector{Float},
     a::Vector{Float},
     b::Vector{Float},
     forcing::MeteorologicalForcing,
 )
-    buckets = [BucketAnalytic(_area, _a, _b) for (_area, _a, _b) in zip(area, a, b)]
-    return BucketCascade(buckets, forcing)
-end
-
-function bucket_cascade_autodiff(
-    area::Vector{Float},
-    a::Vector{Float},
-    b::Vector{Float},
-    forcing::MeteorologicalForcing,
-)
-    buckets = [BucketAutodiff(_area, _a, _b) for (_area, _a, _b) in zip(area, a, b)]
-    return BucketCascade(buckets, forcing)
+    buckets = [Bucket(_area, _a, _b) for (_area, _a, _b) in zip(area, a, b)]
+    return BucketCascade(buckets, forcing, zeros(2))
 end

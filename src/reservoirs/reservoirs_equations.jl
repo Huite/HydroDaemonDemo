@@ -1,15 +1,3 @@
-struct BucketAnalytic <: Bucket
-    area::Float
-    a::Float
-    b::Float
-end
-
-struct BucketAutodiff <: Bucket
-    area::Float
-    a::Float
-    b::Float
-end
-
 const threshold = 10.0
 const m = 0.1
 
@@ -28,11 +16,11 @@ end
 
 # Jacobian terms
 
-function devaporation(b::BucketAnalytic, S, rate)
+function devaporation(b::Bucket, S, rate)
     return 0.0
 end
 
-function dflow(b::BucketAnalytic, S)
+function dflow(b::Bucket, S)
     if S <= 0
         return 0.0  # No flow change when S is negative
     else
@@ -47,7 +35,7 @@ function smooth_flow(b::Bucket, S)
     return b.a * Spos^b.b
 end
 
-function dsmooth_flow(b::BucketAnalytic, S)
+function dsmooth_flow(b::Bucket, S)
     dSpos = dmax_smooth(S, 0, m)
     Spos = max_smooth(S, 0, m)
     dflow_dSpos = b.a * b.b * Spos^(b.b - 1)
@@ -59,7 +47,7 @@ function smooth_evaporation(b::Bucket, S, rate)
     return b.area * rate * activation
 end
 
-function dsmooth_evaporation(b::BucketAnalytic, S, rate)
+function dsmooth_evaporation(b::Bucket, S, rate)
     dactivation = dclamp_smooth(S / threshold, 0, 1, m)
     return b.area * rate * dactivation * (1 / threshold)
 end
@@ -70,7 +58,7 @@ function smooth_evap_sigmoid(b::Bucket, S, rate; k = 10.0)
     return b.area * rate * activation
 end
 
-function dsmooth_evap_sigmoid(b::BucketAnalytic, S, rate; k = 10.0)
+function dsmooth_evap_sigmoid(b::Bucket, S, rate; k = 10.0)
     activation = 1.0 / (1.0 + exp(-k * S))
     dactivation = k * activation * (1.0 - activation)
     return b.area * rate * dactivation
@@ -82,7 +70,7 @@ function smooth_evap_cushion(b::Bucket, S, rate, tol = 1e2)
     return b.area * rate * activation
 end
 
-function dsmooth_evap_cushion(b::BucketAnalytic, S, rate, tol = 1e2)
+function dsmooth_evap_cushion(b::Bucket, S, rate, tol = 1e2)
     if S < 0.0 || S > tol
         return 0.0  # Derivative is zero outside the transition region
     else
@@ -90,12 +78,9 @@ function dsmooth_evap_cushion(b::BucketAnalytic, S, rate, tol = 1e2)
     end
 end
 
-function waterbalance!(state::CascadeState, parameters::BucketCascade)
-    S = state.S
-    dS = state.dS
-    p_rate = state.forcing[1]
-    e_rate = state.forcing[2]
-
+function waterbalance!(dS, S, parameters::BucketCascade)
+    p_rate = parameters.currentforcing[1]
+    e_rate = parameters.currentforcing[2]
     q_upstream = 0.0
     for (i, bucket) in enumerate(parameters.buckets)
         q_downstream = smooth_flow(bucket, S[i])
@@ -108,28 +93,33 @@ function waterbalance!(state::CascadeState, parameters::BucketCascade)
     return
 end
 
+# Explicit method
+
 function explicit_timestep!(state::CascadeState, parameters::BucketCascade, Δt)
-    waterbalance!(state, parameters)
+    (; dS, S) = state
+    waterbalance!(dS, S, parameters)
     @. state.S += state.dS * Δt
     @. state.S = max(state.S, 0)
     return
 end
 
+# Implicit methods
+
 function residual!(rhs, state::CascadeState, parameters::BucketCascade, Δt)
-    waterbalance!(state, parameters)
+    (; dS, S, Sold) = state
+    waterbalance!(dS, S, parameters)
     # Newton-Raphson needs negative residual
-    @. rhs = -(state.dS - (state.S - state.Sold) / Δt)
+    @. rhs = -(dS - (S - Sold) / Δt)
     return
 end
 
-function jacobian!(J, state::CascadeState, cascade::BucketCascade, Δt)
-    S = state.S
+function dwaterbalance!(J, S, parameters::BucketCascade)
     dFdSᵢ = J.d
     dFdSᵢ₋₁ = J.dl
     # dFdSᵢ₊₁ = J.du is always zero.
-    e_rate = state.forcing[2]
+    e_rate = parameters.currentforcing[2]
     dq_upstream = 0.0
-    for (i, bucket) in enumerate(cascade.buckets)
+    for (i, bucket) in enumerate(parameters.buckets)
         # Jacobian terms
         # Lower diagonal J[i, i-1]
         if i > 1
@@ -138,16 +128,30 @@ function jacobian!(J, state::CascadeState, cascade::BucketCascade, Δt)
 
         # Diagonal: J[i, i]
         dq = dsmooth_flow(bucket, S[i])
-        dFdSᵢ[i] = -dq - dsmooth_evaporation(bucket, S[i], e_rate) - 1.0 / Δt
+        dFdSᵢ[i] = -dq - dsmooth_evaporation(bucket, S[i], e_rate)
         dq_upstream = dq
     end
-end
-
-function isoutofdomain(u, p::DiffEqParams{<:BucketCascade,CascadeState}, t)::Bool
-    return any(value < 0 for value in u)
-end
-
-function righthandside!(du, state::CascadeState, parameters::BucketCascade)
-    copyto!(du, state.dS)
     return
+end
+
+function jacobian!(J, state::CascadeState, parameters::BucketCascade, Δt)
+    dwaterbalance!(J, state.S, parameters)
+    J.d .-= 1.0 / Δt
+    return
+end
+
+# Wrapped for DifferentialEquations.jl
+
+function waterbalance!(dS, S, p::DiffEqParams{BucketCascade}, t)
+    waterbalance!(dS, S, p.parameters)
+    return
+end
+
+function dwaterbalance!(J, S, p::DiffEqParams{BucketCascade}, t)
+    dwaterbalance!(J, S, p.parameters)
+    return
+end
+
+function isoutofdomain(u, p::DiffEqParams{BucketCascade}, t)::Bool
+    return any(value < 0 for value in u)
 end

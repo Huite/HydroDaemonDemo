@@ -2,7 +2,6 @@ struct CascadeState <: State
     S::Vector{Float}
     dS::Vector{Float}
     Sold::Vector{Float}
-    forcing::Vector{Float}
 end
 
 function primary(state::CascadeState)
@@ -10,7 +9,7 @@ function primary(state::CascadeState)
 end
 
 function prepare_state(p::BucketCascade, initial)
-    return CascadeState(copy(initial), zero(initial), copy(initial), zeros(2))
+    return CascadeState(copy(initial), zero(initial), copy(initial))
 end
 
 function apply_update!(state::CascadeState, linearsolver, a)
@@ -28,9 +27,3 @@ function rewind!(state::CascadeState)
     return
 end
 
-function force!(state::CascadeState, parameters, t)
-    p, e = find_rates(parameters.forcing, t)
-    state.forcing[1] = p
-    state.forcing[2] = e
-    return
-end
