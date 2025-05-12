@@ -89,8 +89,9 @@ function waterbalance!(ψ, parameters::RichardsParameters)
 
     lower = (1:n-1)
     upper = (2:n)
-    @. Δψ = ψ[upper] - ψ[lower]
-    @. k_inter = (k[lower] * Δz[lower] + k[upper] * Δz[upper]) / (Δz[lower] + Δz[upper])
+    @views @. Δψ = ψ[upper] - ψ[lower]
+    @views @. k_inter =
+        (k[lower] * Δz[lower] + k[upper] * Δz[upper]) / (Δz[lower] + Δz[upper])
 
     # Internodal flows
     @. ∇q = 0.0
@@ -127,9 +128,9 @@ function dwaterbalance!(J, ψ, parameters::RichardsParameters)
     lower = (1:n-1)
     upper = (2:n)
     # First compute the off-diagonal terms
-    @. dFᵢ₊₁dψᵢ =
+    @views @. dFᵢ₊₁dψᵢ =
         (k_inter * Δz⁻¹) - dk[lower] * (Δψ * Δz⁻¹) * Δz[lower] / (Δz[lower] + Δz[upper])
-    @. dFᵢ₋₁dψᵢ =
+    @views @. dFᵢ₋₁dψᵢ =
         (k_inter * Δz⁻¹) + dk[lower] * (Δψ * Δz⁻¹) * Δz[upper] / (Δz[upper] + Δz[lower])
 
     # Then compute the diagonal term
