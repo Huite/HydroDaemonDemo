@@ -2,6 +2,7 @@
 using HydroDaemonDemo
 using DifferentialEquations
 using BenchmarkTools
+using Plots
 ##
 
 n = 40
@@ -48,6 +49,7 @@ implicit_richards = HydroDaemonDemo.ImplicitHydrologicalModel(
     HydroDaemonDemo.FixedTimeStepper(Δt),
 )
 HydroDaemonDemo.run!(implicit_richards)
+plot(implicit_richards.saved[:, end])
 
 @btime HydroDaemonDemo.reset_and_run!(implicit_richards, -61.5)
 
@@ -102,6 +104,5 @@ HydroDaemonDemo.reset_and_run!(diffeq_richards, -61.5)
 
 ##
 
-using Plots
 plot(implicit_richards.saved[:, end])
 plot!(diffeq_richards.saved[:, end])
