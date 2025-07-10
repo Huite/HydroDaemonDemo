@@ -21,7 +21,7 @@ constitutive = [
 initial = fill(-61.5, n)
 parameters = HydroDaemonDemo.RichardsParameters(
     constitutive,
-    fill(Δz, n),
+    Δz,
     HydroDaemonDemo.MeteorologicalForcing([0.0], [0.0], [0.0]),
     HydroDaemonDemo.HeadBoundary(-61.5, constitutive[1]),
     HydroDaemonDemo.HeadBoundary(-21.0, constitutive[end]),

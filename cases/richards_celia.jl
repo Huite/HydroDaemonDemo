@@ -7,14 +7,15 @@ using Plots
 
 n = 40
 Δz = 1.0  # cm
+Ss = 1e-6
 
 # Celia case
 
 constitutive = fill(
     HydroDaemonDemo.Haverkamp(
-        α = 1.611e6,
+        a = 1.611e6,
         β = 3.96,
-        γ = 4.74,
+        y = 4.74,
         A = 1.175e6,
         ks = 0.00944,
         θs = 0.287,
@@ -25,7 +26,8 @@ constitutive = fill(
 initial = fill(-61.5, n)
 parameters = HydroDaemonDemo.RichardsParameters(
     constitutive,
-    fill(Δz, n),
+    Δz,
+    Ss,
     HydroDaemonDemo.MeteorologicalForcing([0.0], [0.0], [0.0]),
     HydroDaemonDemo.HeadBoundary(-61.5, constitutive[1]),
     HydroDaemonDemo.HeadBoundary(-20.5, constitutive[end]),
@@ -55,14 +57,12 @@ solverconfig = HydroDaemonDemo.SolverConfig(
     dt = 1.0,
     dtmin = 1e-6,
     dtmax = 1.0,
-    #alg = QNDF(autodiff = true, nlsolve = NLNewton()),
-    alg = Tsit5(),
+    alg = QNDF(autodiff = true, nlsolve = NLNewton()),
     adaptive = true,
     force_dtmin = false,
     abstol = 1e-5,
     reltol = 1e-5,
     maxiters = 10000,
-    analytic_jacobian = false,
     detect_sparsity = false,
 )
 
@@ -81,7 +81,8 @@ HydroDaemonDemo.reset_and_run!(diffeq_richards, -61.5)
 
 parameters_dae = HydroDaemonDemo.RichardsParametersDAE(
     constitutive,
-    fill(Δz, n),
+    Δz,
+    Ss,
     HydroDaemonDemo.MeteorologicalForcing([0.0], [0.0], [0.0]),
     HydroDaemonDemo.HeadBoundary(-61.5, constitutive[1]),
     HydroDaemonDemo.HeadBoundary(-20.5, constitutive[end]),
@@ -91,13 +92,11 @@ solverconfig = HydroDaemonDemo.SolverConfig(
     dtmin = 1e-6,
     dtmax = 1.0,
     alg = QNDF(autodiff = true, nlsolve = NLNewton()),
-    #alg = QBDF1(autodiff = true, nlsolve = NLNewton()),
     adaptive = true,
     force_dtmin = false,
     abstol = 1e-5,
     reltol = 1e-5,
     maxiters = 10000,
-    analytic_jacobian = false,
     detect_sparsity = true,
 )
 diffeq_richards_dae = HydroDaemonDemo.DiffEqHydrologicalModel(

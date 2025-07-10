@@ -39,7 +39,7 @@ end
 function bottomflux(ψ, parameters::AbstractRichards, boundary::HeadBoundary)
     kmean = 0.5 * (conductivity(ψ[1], parameters.constitutive[1]) + boundary.k)
     Δψ = boundary.ψ - ψ[1]
-    Δz = 0.5 * parameters.Δz[1]
+    Δz = 0.5 * parameters.Δz
     return kmean * (Δψ / Δz - 1)
 end
 
@@ -47,14 +47,14 @@ function bottomboundary_jacobian!(ψ, parameters::AbstractRichards, boundary::He
     kmean = 0.5 * (conductivity(ψ[1], parameters.constitutive[1]) + boundary.k)
     Δψ = boundary.ψ - ψ[1]
     dk = 0.5 * dconductivity(ψ[1], parameters.constitutive[1])
-    Δz = 0.5 * parameters.Δz[1]
+    Δz = 0.5 * parameters.Δz
     return -(kmean / Δz) + dk * (Δψ / Δz - 1)
 end
 
 function topflux(ψ, parameters::AbstractRichards, boundary::HeadBoundary)
     kmean = 0.5 * (conductivity(ψ[end], parameters.constitutive[end]) + boundary.k)
     Δψ = boundary.ψ - ψ[end]
-    Δz = 0.5 * parameters.Δz[end]
+    Δz = 0.5 * parameters.Δz
     return kmean * (Δψ / Δz + 1)
 end
 
@@ -62,7 +62,7 @@ function topboundary_jacobian!(ψ, parameters::AbstractRichards, boundary::HeadB
     kmean = 0.5 * (conductivity(ψ[end], parameters.constitutive[end]) + boundary.k)
     Δψ = boundary.ψ - ψ[end]
     dk = 0.5 * dconductivity(ψ[end], parameters.constitutive[end])
-    Δz = 0.5 * parameters.Δz[end]
+    Δz = 0.5 * parameters.Δz
     return -(kmean / Δz) + dk * (Δψ / Δz + 1)
 end
 
@@ -83,7 +83,7 @@ end
 function waterbalance!(∇q, ψ, parameters::AbstractRichards)
     (; constitutive, Δz, bottomboundary, topboundary, n) = parameters
     @. ∇q = 0.0
-    Δz⁻¹ = 1.0 / Δz[1]
+    Δz⁻¹ = 1.0 / Δz
 
     # Internodal flows
     k_lower = conductivity(ψ[1], constitutive[1])
@@ -115,7 +115,7 @@ end
 
 function residual!(rhs, state::RichardsState, parameters::RichardsParameters, Δt)
     waterbalance!(state.∇q, state.ψ, parameters)
-    Δz = parameters.Δz[1]
+    Δz = parameters.Δz
     for i = 1:parameters.n
         θ = moisture_content(state.ψ[i], parameters.constitutive[i])
         rhs[i] = -(state.∇q[i] - Δz * (θ - state.θ_old[i]) / Δt)
@@ -129,7 +129,7 @@ function dwaterbalance!(J, ψ, parameters::RichardsParameters)
     dFᵢdψᵢ = J.d  # derivatives of F₁, ... Fₙ with respect to ψ₁, ... ψₙ
     dFᵢ₊₁dψᵢ = J.dl  # derivatives of F₂, ... Fₙ with respect to ψ₁, ... ψₙ₋₁
     dFᵢ₋₁dψᵢ = J.du  # derivatives of F₁, ... Fₙ₋₁ with respect to ψ₂, ... ψₙ
-    Δz⁻¹ = 1.0 / Δz[1]
+    Δz⁻¹ = 1.0 / Δz
 
     # First compute the off-diagonal terms -- relating to the internodal flows.
     k_lower = conductivity(ψ[1], constitutive[1])
@@ -166,10 +166,10 @@ end
 """
 function jacobian!(J, state, parameters::RichardsParameters, Δt)
     dwaterbalance!(J, state.ψ, parameters)
-    Δz = parameters.Δz[1]
+    Δz = parameters.Δz
     for i = 1:parameters.n
         C = specific_moisture_capacity(state.ψ[i], parameters.constitutive[i])
-        J.d[i] -= (C * Δz) / Δt
+        J.d[i] -= ((C + parameters.Ss) * Δz) / Δt
     end
     return
 end
@@ -180,10 +180,10 @@ end
 function waterbalance!(dψ, ψ, p::DiffEqParams{<:RichardsParameters}, t)
     parameters = p.parameters
     waterbalance!(dψ, ψ, parameters)
-    Δz = parameters.Δz[1]
+    Δz = parameters.Δz
     for i = 1:parameters.n
         C = specific_moisture_capacity(ψ[i], parameters.constitutive[i])
-        dψ[i] *= 1.0 / (Δz * C)
+        dψ[i] *= 1.0 / (Δz * (C + parameters.Ss))
     end
     return
 end
@@ -207,11 +207,11 @@ function waterbalance_dae!(du, u, parameters::RichardsParametersDAE)
     θ = @view u[n+1:end]
 
     waterbalance!(dψ, ψ, parameters)
-    Δz = parameters.Δz[1]
+    Δz = parameters.Δz
     for i = 1:parameters.n
         # Head-based Richards equation
         C = specific_moisture_capacity(ψ[i], parameters.constitutive[i])
-        dψ[i] /= (Δz * C)
+        dψ[i] /= (Δz * (C + parameters.Ss))
         # Algebraic constraint
         dθ[i] = θ[i] - moisture_content(ψ[i], parameters.constitutive[i])
     end

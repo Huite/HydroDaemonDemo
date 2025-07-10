@@ -59,7 +59,6 @@ solverconfig = HydroDaemonDemo.SolverConfig(
     abstol = 1e-3,
     reltol = 1e-3,
     maxiters = 10000,
-    analytic_jacobian = false,
 )
 
 diffeq_reservoirs =

@@ -29,7 +29,6 @@ end
     reltol::Float = 1e-6
     maxiters::Int = 100
     autodiff::Bool = true
-    analytic_jacobian::Bool = false
     detect_sparsity::Bool = false
 end
 
@@ -72,12 +71,7 @@ function DiffEqHydrologicalModel(
     callbacks = CallbackSet(forcing_callback, save_callback)
     params = DiffEqParams(parameters, savedresults)
 
-    f = prepare_ode_function(
-        parameters,
-        nstate,
-        solverconfig.analytic_jacobian,
-        solverconfig.detect_sparsity,
-    )
+    f = prepare_ode_function(parameters, nstate, solverconfig.detect_sparsity)
     problem = ODEProblem(f, initial, tspan, params)
 
     integrator = init(

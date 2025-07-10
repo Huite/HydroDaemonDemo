@@ -18,7 +18,7 @@ function primary(state::State)
     error("primary not implemented for $(typeof(state))")
 end
 
-function prepare_ode_function(p::Parameters, nstate, analytic_jacobian, detect_sparsity)
+function prepare_ode_function(p::Parameters, nstate, detect_sparsity)
     if detect_sparsity
         J = jacobian_sparsity(
             (du, u) -> waterbalance!(du, u, p),
@@ -30,11 +30,7 @@ function prepare_ode_function(p::Parameters, nstate, analytic_jacobian, detect_s
         J = Tridiagonal(zeros(nstate - 1), zeros(nstate), zeros(nstate - 1))
     end
 
-    if analytic_jacobian
-        f = ODEFunction(waterbalance!; jac = dwaterbalance!, jac_prototype = J)
-    else
-        f = ODEFunction(waterbalance!; jac_prototype = J)
-    end
+    f = ODEFunction(waterbalance!; jac_prototype = J)
     return f
 end
 

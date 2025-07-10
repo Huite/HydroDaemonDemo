@@ -2,8 +2,8 @@ abstract type AbstractRichards <: Parameters end
 
 struct RichardsParameters{C,T,B} <: AbstractRichards
     constitutive::Vector{C}
-    Δz::Vector{Float}
-    Δz⁻¹::Vector{Float}
+    Δz::Float
+    Ss::Float
     forcing::MeteorologicalForcing
     bottomboundary::B
     topboundary::T
@@ -11,25 +11,23 @@ struct RichardsParameters{C,T,B} <: AbstractRichards
     currentforcing::Vector{Float}  # P, ET
 end
 
-function RichardsParameters(constitutive, Δz, forcing, bottomboundary, topboundary)
-    Δz⁻¹ = @views 2.0 ./ (Δz[1:end-1] .+ Δz[2:end])
-    n = length(constitutive)
+function RichardsParameters(constitutive, Δz, Ss, forcing, bottomboundary, topboundary)
     return RichardsParameters(
         constitutive,
         Δz,
-        Δz⁻¹,
+        Ss,
         forcing,
         bottomboundary,
         topboundary,
-        n,
+        length(constitutive),
         zeros(2),
     )
 end
 
 struct RichardsParametersDAE{C,T,B} <: AbstractRichards
     constitutive::Vector{C}
-    Δz::Vector{Float}
-    Δz⁻¹::Vector{Float}
+    Δz::Float
+    Ss::Float
     forcing::MeteorologicalForcing
     bottomboundary::B
     topboundary::T
@@ -37,27 +35,20 @@ struct RichardsParametersDAE{C,T,B} <: AbstractRichards
     currentforcing::Vector{Float}  # P, ET
 end
 
-function RichardsParametersDAE(constitutive, Δz, forcing, bottomboundary, topboundary)
-    Δz⁻¹ = @views 2.0 ./ (Δz[1:end-1] .+ Δz[2:end])
-    n = length(constitutive)
+function RichardsParametersDAE(constitutive, Δz, Ss, forcing, bottomboundary, topboundary)
     return RichardsParametersDAE(
         constitutive,
         Δz,
-        Δz⁻¹,
+        Ss,
         forcing,
         bottomboundary,
         topboundary,
-        n,
+        length(constitutive),
         zeros(2),
     )
 end
 
-function prepare_ode_function(
-    p::RichardsParametersDAE,
-    nstate,
-    analytic_jacobian,
-    detect_sparsity,
-)
+function prepare_ode_function(p::RichardsParametersDAE, nstate, detect_sparsity)
     n = Int(nstate / 2)
     if detect_sparsity
         J = jacobian_sparsity(

@@ -40,6 +40,7 @@ include("fuse/fuse070_equations.jl")
 
 # Richards 1D column
 include("richards/constitutive/haverkamp.jl")
+include("richards/constitutive/mualemvangenuchten.jl")
 include("richards/richards_parameters.jl")
 include("richards/richards_state.jl")
 include("richards/richards_equations.jl")

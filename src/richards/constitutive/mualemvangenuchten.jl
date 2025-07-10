@@ -1,5 +1,5 @@
-struct MualemVanGenuchten <: ConstitutiveRelationships
-    α::Float     # Air entry pressure [1/L]
+@kwdef struct MualemVanGenuchten <: ConstitutiveRelationships
+    a::Float     # Air entry pressure [1/L]
     n::Float     # Pore size distribution [-]
     m::Float     # Usually set to 1 - 1/n [-]
     l::Float     # Pore connectivity parameter, typically 0.5 [-]
@@ -10,7 +10,7 @@ end
 
 # Mualem-van Genuchten functions
 function effective_saturation(ψ, mvg::MualemVanGenuchten)
-    return (1 + (mvg.α * abs(min(ψ, 0.0)))^mvg.n)^(-mvg.m)
+    return (1 + (mvg.a * abs(min(ψ, 0.0)))^mvg.n)^(-mvg.m)
 end
 
 function moisture_content(ψ, mvg::MualemVanGenuchten)
@@ -19,12 +19,9 @@ function moisture_content(ψ, mvg::MualemVanGenuchten)
 end
 
 function specific_moisture_capacity(ψ, mvg::MualemVanGenuchten)
-    if ψ >= 0
-        return 0.0
-    end
-
     Se = effective_saturation(ψ, mvg)
-    dSe_dh = mvg.α * mvg.n * mvg.m * abs(ψ)^(mvg.n - 1) * Se^(1 / mvg.m) * Se
+    dSe_dh =
+        (mvg.a^mvg.n) * mvg.m * mvg.n * abs(min(ψ, 0.0))^(mvg.n - 1) * Se^(1 / mvg.m) * Se
     return dSe_dh * (mvg.θs - mvg.θr)
 end
 
@@ -40,7 +37,7 @@ function dconductivity(ψ, mvg::MualemVanGenuchten)
     end
 
     Se = effective_saturation(ψ, mvg)
-    dSe_dh = mvg.α * mvg.n * mvg.m * abs(ψ)^(mvg.n - 1) * Se^(1 / mvg.m) * Se
+    dSe_dh = (mvg.a^mvg.n) * mvg.n * mvg.m * abs(ψ)^(mvg.n - 1) * Se^(1 / mvg.m) * Se
 
     # Term 1: derivative of Se^l
     term1 = mvg.l * Se^(mvg.l - 1) * dSe_dh
