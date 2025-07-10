@@ -51,32 +51,19 @@ implicit_richards = HydroDaemonDemo.ImplicitHydrologicalModel(
 HydroDaemonDemo.run!(implicit_richards)
 plot(implicit_richards.saved[:, end])
 
-@btime HydroDaemonDemo.reset_and_run!(implicit_richards, -61.5)
-
-# O relax
-# 3.7 ms
-
-# Simple line search
-# 5.9 ms
-
-# CubicLineSearch
-# 5.9 ms
-
-##
-
-using LineSearches: BackTracking
-
 solverconfig = HydroDaemonDemo.SolverConfig(
     dt = 1.0,
     dtmin = 1e-6,
     dtmax = 1.0,
-    alg = QNDF(autodiff = false, nlsolve = NLNewton()),
+    #alg = QNDF(autodiff = true, nlsolve = NLNewton()),
+    alg = Tsit5(),
     adaptive = true,
     force_dtmin = false,
     abstol = 1e-5,
     reltol = 1e-5,
     maxiters = 10000,
-    analytic_jacobian = true,
+    analytic_jacobian = false,
+    detect_sparsity = false,
 )
 
 diffeq_richards = HydroDaemonDemo.DiffEqHydrologicalModel(
@@ -92,17 +79,40 @@ HydroDaemonDemo.reset_and_run!(diffeq_richards, -61.5)
 
 @btime HydroDaemonDemo.reset_and_run!(diffeq_richards, -61.5)
 
-# Relax 0.5
-# QNDF: 4.83 ms
-
-# Relax 0.0
-# ImplicitEuler: 49.8 ms
-# Rosenbrock23: 67.98 ms
-# QNDF: 3.96 ms
-
-# Tsit5: 7.86 ms
-
-##
+parameters_dae = HydroDaemonDemo.RichardsParametersDAE(
+    constitutive,
+    fill(Δz, n),
+    HydroDaemonDemo.MeteorologicalForcing([0.0], [0.0], [0.0]),
+    HydroDaemonDemo.HeadBoundary(-61.5, constitutive[1]),
+    HydroDaemonDemo.HeadBoundary(-20.5, constitutive[end]),
+)
+solverconfig = HydroDaemonDemo.SolverConfig(
+    dt = 1.0,
+    dtmin = 1e-6,
+    dtmax = 1.0,
+    alg = QNDF(autodiff = true, nlsolve = NLNewton()),
+    #alg = QBDF1(autodiff = true, nlsolve = NLNewton()),
+    adaptive = true,
+    force_dtmin = false,
+    abstol = 1e-5,
+    reltol = 1e-5,
+    maxiters = 10000,
+    analytic_jacobian = false,
+    detect_sparsity = true,
+)
+diffeq_richards_dae = HydroDaemonDemo.DiffEqHydrologicalModel(
+    parameters_dae,
+    [initial; zero(initial)],
+    tspan,
+    saveat,
+    solverconfig,
+)
+HydroDaemonDemo.run!(diffeq_richards_dae)
 
 plot(implicit_richards.saved[:, end])
 plot!(diffeq_richards.saved[:, end])
+plot!(diffeq_richards_dae.saved[1:n, end])
+
+HydroDaemonDemo.reset_and_run!(diffeq_richards_dae, -61.5)
+
+@btime HydroDaemonDemo.reset_and_run!(diffeq_richards_dae, -61.5)

@@ -7,6 +7,8 @@ using DifferentialEquations
 using CSV
 using DataFrames
 using Dates
+using SparseArrays
+using SparseConnectivityTracer: TracerSparsityDetector, jacobian_sparsity
 
 const Float = Float64
 

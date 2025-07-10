@@ -30,6 +30,7 @@ end
     maxiters::Int = 100
     autodiff::Bool = true
     analytic_jacobian::Bool = false
+    detect_sparsity::Bool = false
 end
 
 struct DiffEqHydrologicalModel{T}
@@ -71,13 +72,12 @@ function DiffEqHydrologicalModel(
     callbacks = CallbackSet(forcing_callback, save_callback)
     params = DiffEqParams(parameters, savedresults)
 
-    J = Tridiagonal(zeros(nstate - 1), zeros(nstate), zeros(nstate - 1))
-    if solverconfig.analytic_jacobian
-        f = ODEFunction(waterbalance!; jac = dwaterbalance!, jac_prototype = J)
-    else
-        f = ODEFunction(waterbalance!; jac_prototype = J)
-    end
-
+    f = prepare_ode_function(
+        parameters,
+        nstate,
+        solverconfig.analytic_jacobian,
+        solverconfig.detect_sparsity,
+    )
     problem = ODEProblem(f, initial, tspan, params)
 
     integrator = init(
@@ -114,6 +114,9 @@ function reset_and_run!(model::DiffEqHydrologicalModel, initial)
     # Set initial state
     u0 = model.integrator.sol.prob.u0
     u0 .= initial
+    # Note: reinit causes allocations.
+    # When benchmarking, this will cause some allocations to show up,
+    # even if the model is non-allocating.
     reinit!(model.integrator, u0)
     run!(model)
     return
