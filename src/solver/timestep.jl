@@ -27,6 +27,7 @@ struct AdaptiveTimeStepper <: TimeStepper
     n_decrease::Int
     decrease::Float
     failure::Float
+    Δtmin::Float
     function AdaptiveTimeStepper(
         Δt0;
         n_increase = 5,
@@ -34,8 +35,9 @@ struct AdaptiveTimeStepper <: TimeStepper
         n_decrease = 15,
         decrease = 0.9,
         failure = 0.5,
+        Δtmin = 1e-6,
     )
-        return new(Δt0, n_increase, increase, n_decrease, decrease, failure)
+        return new(Δt0, n_increase, increase, n_decrease, decrease, failure, Δtmin)
     end
 end
 
@@ -49,14 +51,18 @@ function compute_timestep_size(
     n_newton_iter,
 )
     if !converged
-        return Δt * timestepper.failure
+        newΔt = Δt * timestepper.failure
     elseif n_newton_iter > timestepper.n_decrease
-        return Δt * timestepper.decrease
+        newΔt = Δt * timestepper.decrease
     elseif n_newton_iter < timestepper.n_increase
-        return Δt * timestepper.increase
+        newΔt = Δt * timestepper.increase
     else
-        return Δt
+        newΔt = Δt
     end
+    if newΔt < timestepper.Δtmin
+        error("Time step below Δtmin")
+    end
+    return newΔt
 end
 
 
