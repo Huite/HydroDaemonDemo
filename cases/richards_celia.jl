@@ -17,7 +17,7 @@ constitutive = fill(
         β = 3.96,
         y = 4.74,
         A = 1.175e6,
-        ks = 0.00944,
+        ks = 0.00944,  # m/s
         θs = 0.287,
         θr = 0.075,
     ),
@@ -79,14 +79,7 @@ HydroDaemonDemo.reset_and_run!(diffeq_richards, -61.5)
 
 @btime HydroDaemonDemo.reset_and_run!(diffeq_richards, -61.5)
 
-parameters_dae = HydroDaemonDemo.RichardsParametersDAE(
-    constitutive,
-    Δz,
-    Ss,
-    HydroDaemonDemo.MeteorologicalForcing([0.0], [0.0], [0.0]),
-    HydroDaemonDemo.HeadBoundary(-61.5, constitutive[1]),
-    HydroDaemonDemo.HeadBoundary(-20.5, constitutive[end]),
-)
+parameters_dae = HydroDaemonDemo.RichardsParametersDAE(parameters)
 solverconfig = HydroDaemonDemo.SolverConfig(
     dt = 1.0,
     dtmin = 1e-6,

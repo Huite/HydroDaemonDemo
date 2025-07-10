@@ -34,6 +34,11 @@ function prepare_ode_function(p::Parameters, nstate, detect_sparsity)
     return f
 end
 
+function reset!(p::Parameters, u0, initial)
+    u0 .= initial
+    return
+end
+
 function jacobian!(J, state::ImplicitState, parameters, Δt)
     error("jacobian! not implemented for $(typeof(state))")
 end

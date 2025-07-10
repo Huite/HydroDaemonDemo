@@ -107,10 +107,11 @@ function reset_and_run!(model::DiffEqHydrologicalModel, initial)
     model.integrator.p.results.save_idx[] = 1
     # Set initial state
     u0 = model.integrator.sol.prob.u0
-    u0 .= initial
+    # Dispatch on parameters type for DAE formulation
+    reset!(model.integrator.p.parameters, u0, initial)
     # Note: reinit causes allocations.
     # When benchmarking, this will cause some allocations to show up,
-    # even if the model is non-allocating.
+    # even if the ODE function is non-allocating.
     reinit!(model.integrator, u0)
     run!(model)
     return

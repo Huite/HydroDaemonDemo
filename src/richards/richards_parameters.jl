@@ -35,7 +35,8 @@ struct RichardsParametersDAE{C,T,B} <: AbstractRichards
     currentforcing::Vector{Float}  # P, ET
 end
 
-function RichardsParametersDAE(constitutive, Δz, Ss, forcing, bottomboundary, topboundary)
+
+function RichardsParametersDAE(; constitutive, Δz, Ss, forcing, bottomboundary, topboundary)
     return RichardsParametersDAE(
         constitutive,
         Δz,
@@ -46,6 +47,25 @@ function RichardsParametersDAE(constitutive, Δz, Ss, forcing, bottomboundary, t
         length(constitutive),
         zeros(2),
     )
+end
+
+# Simple conversion function
+function RichardsParametersDAE(p::RichardsParameters)
+    return RichardsParametersDAE(
+        p.constitutive,
+        p.Δz,
+        p.Ss,
+        p.forcing,
+        p.bottomboundary,
+        p.topboundary,
+        p.n,
+        zeros(2),
+    )
+end
+
+function reset!(p::RichardsParametersDAE, u0, initial)
+    @views u0[1:p.n] .= initial
+    return
 end
 
 function prepare_ode_function(p::RichardsParametersDAE, nstate, detect_sparsity)
