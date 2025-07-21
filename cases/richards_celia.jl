@@ -11,18 +11,16 @@ Ss = 1e-6
 
 # Celia case
 
-constitutive = fill(
-    HydroDaemonDemo.Haverkamp(
-        a = 1.611e6,
-        β = 3.96,
-        y = 4.74,
-        A = 1.175e6,
-        ks = 0.00944,  # m/s
-        θs = 0.287,
-        θr = 0.075,
-    ),
-    n,
+soilproperties = HydroDaemonDemo.Haverkamp(
+    a = 1.611e6,
+    β = 3.96,
+    y = 4.74,
+    A = 1.175e6,
+    ks = 0.00944,  # m/s
+    θs = 0.287,
+    θr = 0.075,
 )
+constitutive = fill(soilproperties, n)
 initial = fill(-61.5, n)
 parameters = HydroDaemonDemo.RichardsParameters(
     constitutive,
@@ -48,10 +46,9 @@ implicit_richards = HydroDaemonDemo.ImplicitHydrologicalModel(
     solver,
     tspan,
     saveat,
-    HydroDaemonDemo.FixedTimeStepper(Δt),
+    HydroDaemonDemo.AdaptiveTimeStepper(Δt),
 )
 HydroDaemonDemo.run!(implicit_richards)
-plot(implicit_richards.saved[:, end])
 
 solverconfig = HydroDaemonDemo.SolverConfig(
     dt = 1.0,
@@ -77,8 +74,6 @@ HydroDaemonDemo.run!(diffeq_richards)
 
 HydroDaemonDemo.reset_and_run!(diffeq_richards, -61.5)
 
-@btime HydroDaemonDemo.reset_and_run!(diffeq_richards, -61.5)
-
 parameters_dae = HydroDaemonDemo.RichardsParametersDAE(parameters)
 solverconfig = HydroDaemonDemo.SolverConfig(
     dt = 1.0,
@@ -90,7 +85,7 @@ solverconfig = HydroDaemonDemo.SolverConfig(
     abstol = 1e-5,
     reltol = 1e-5,
     maxiters = 10000,
-    detect_sparsity = true,
+    detect_sparsity = false,
 )
 diffeq_richards_dae = HydroDaemonDemo.DiffEqHydrologicalModel(
     parameters_dae,
@@ -100,11 +95,16 @@ diffeq_richards_dae = HydroDaemonDemo.DiffEqHydrologicalModel(
     solverconfig,
 )
 HydroDaemonDemo.run!(diffeq_richards_dae)
+HydroDaemonDemo.reset_and_run!(diffeq_richards_dae, -61.5)
 
 plot(implicit_richards.saved[:, end])
 plot!(diffeq_richards.saved[:, end])
 plot!(diffeq_richards_dae.saved[1:n, end])
 
-HydroDaemonDemo.reset_and_run!(diffeq_richards_dae, -61.5)
-
+@btime HydroDaemonDemo.reset_and_run!(implicit_richards, -61.5)
+@btime HydroDaemonDemo.reset_and_run!(diffeq_richards, -61.5)
 @btime HydroDaemonDemo.reset_and_run!(diffeq_richards_dae, -61.5)
+
+plot(implicit_richards.saved[:, end])
+plot!(diffeq_richards.saved[:, end])
+plot!(diffeq_richards_dae.saved[1:n, end])

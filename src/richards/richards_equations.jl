@@ -169,7 +169,7 @@ function jacobian!(J, state, parameters::RichardsParameters, Δt)
     Δz = parameters.Δz
     for i = 1:parameters.n
         C = specific_moisture_capacity(state.ψ[i], parameters.constitutive[i])
-        J.d[i] -= ((C + parameters.Ss) * Δz) / Δt
+        J.d[i] -= (Δz * (C + parameters.Ss)) / Δt
     end
     return
 end

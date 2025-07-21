@@ -9,6 +9,7 @@ using DataFrames
 using Dates
 using SparseArrays
 using SparseConnectivityTracer: TracerSparsityDetector, jacobian_sparsity
+import DataInterpolations
 
 const Float = Float64
 
@@ -41,6 +42,7 @@ include("fuse/fuse070_equations.jl")
 # Richards 1D column
 include("richards/constitutive/haverkamp.jl")
 include("richards/constitutive/mualemvangenuchten.jl")
+include("richards/constitutive/spline.jl")
 include("richards/richards_parameters.jl")
 include("richards/richards_state.jl")
 include("richards/richards_equations.jl")
