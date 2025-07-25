@@ -20,10 +20,6 @@ end
 
 @kwdef struct SolverConfig
     alg::Any
-    dt::Float
-    dtmin::Float
-    dtmax::Float
-    adaptive::Bool = true
     force_dtmin::Bool = false
     abstol::Float = 1e-6
     reltol::Float = 1e-6
@@ -84,11 +80,6 @@ function DiffEqHydrologicalModel(
         callback = callbacks,
         tstops = tstops,
         isoutofdomain = isoutofdomain,
-        adaptive = solverconfig.adaptive,
-        dt = solverconfig.dt,
-        dtmin = solverconfig.dtmin,
-        dtmax = something(solverconfig.dtmax, tend),
-        force_dtmin = solverconfig.force_dtmin,
         abstol = solverconfig.abstol,
         reltol = solverconfig.reltol,
         maxiters = solverconfig.maxiters,
