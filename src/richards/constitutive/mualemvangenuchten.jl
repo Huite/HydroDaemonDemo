@@ -16,7 +16,7 @@ end
 
 # Mualem-van Genuchten functions
 function effective_saturation(ψ, mvg::MualemVanGenuchten)
-     (; a, n, m) = mvg
+    (; a, n, m) = mvg
     Se = (1 + (a * abs(ψ))^n)^(-m)
     return ifelse(ψ > 0, 1, Se)
 end
@@ -61,11 +61,7 @@ function dconductivity(ψ, mvg::MualemVanGenuchten)
     outer = 1 - inner^m
     outer_der = -m * inner^(m - 1) * inner_der
 
-    return ifelse(
-        ψ > 0,
-        0.0,
-        ks * (term1 * (1 - inner^m)^2 + 2 * Se^l * outer * outer_der)
-    )
+    return ifelse(ψ > 0, 0.0, ks * (term1 * (1 - inner^m)^2 + 2 * Se^l * outer * outer_der))
 end
 
 # Modified Mualem–van Genuchten relations (Vogel 2000, Ippisch 2006)
@@ -91,11 +87,7 @@ end
 
 function effective_saturation(ψ, mvg::ModifiedMualemVanGenuchten)
     (; a, n, m, ψe, Sc) = mvg
-    return ifelse(
-        ψ > ψe,
-        1.0,
-        (1 / Sc) * (1 + (a * abs(ψ))^n)^(-m)
-    )
+    return ifelse(ψ > ψe, 1.0, (1 / Sc) * (1 + (a * abs(ψ))^n)^(-m))
 end
 
 function deffective_saturation(ψ, mvg::ModifiedMualemVanGenuchten)
@@ -103,11 +95,7 @@ function deffective_saturation(ψ, mvg::ModifiedMualemVanGenuchten)
     absψ = abs(ψ)
     f = 1 + (a * absψ)^n
     derivative = (m * n * a^n / Sc) * absψ^(n - 1) * f^(-m - 1)
-    return ifelse(
-        ψ > ψe,
-        0.0,
-        derivative,
-    )
+    return ifelse(ψ > ψe, 0.0, derivative)
 end
 
 function moisture_content(ψ, mvg::ModifiedMualemVanGenuchten)

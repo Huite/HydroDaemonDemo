@@ -1,7 +1,7 @@
 """Haverkamp constitutive relationship."""
 @kwdef struct Haverkamp <: ConstitutiveRelationships
     a::Float
-    β::Float
+    B::Float
     y::Float
     A::Float
     ks::Float
@@ -20,19 +20,19 @@ function dconductivity(ψ, h::Haverkamp)
 end
 
 function moisture_content(ψ, h::Haverkamp)
-    return h.a * (h.θs - h.θr) / (h.a + abs(ψ)^h.β) + h.θr
+    return h.a * (h.θs - h.θr) / (h.a + abs(ψ)^h.B) + h.θr
 end
 
 function specific_moisture_capacity(ψ, h::Haverkamp)
-    return h.a * h.β * (h.θs - h.θr) * abs(ψ)^(h.β - 1) / (h.a + abs(ψ)^h.β)^2
+    return h.a * h.B * (h.θs - h.θr) * abs(ψ)^(h.B - 1) / (h.a + abs(ψ)^h.B)^2
 end
 
 function dspecific_moisture_capacity(ψ, h::Haverkamp)
-    a, β, θs, θr = h.a, h.β, h.θs, h.θr
+    (; a, B, θs, θr) = h
     A = a * (θs - θr)
     absψ = abs(ψ)
-    num1 = (β - 1) * absψ^(β - 2) * (a + absψ^β)^2
-    num2 = 2 * β * ψ * absψ^(2β - 3) * (a + absψ^β)
-    denom = (a + absψ^β)^4
-    return -A * β * (num1 - num2) / denom
+    num1 = (B - 1) * absψ^(B - 2) * (a + absψ^B)^2
+    num2 = 2 * B * ψ * absψ^(2B - 3) * (a + absψ^B)
+    denom = (a + absψ^B)^4
+    return -A * B * (num1 - num2) / denom
 end
