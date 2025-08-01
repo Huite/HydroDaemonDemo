@@ -6,11 +6,12 @@ struct MualemVanGenuchten <: ConstitutiveRelationships
     ks::Float64     # saturated hydraulic conductivity [L/T]
     θs::Float64     # saturated water content
     θr::Float64     # residual water content
-    function MualemVanGenuchten(; a, n, m = nothing, l, ks, θs, θr)
+    Ss::Float64
+    function MualemVanGenuchten(; a, n, m = nothing, l, ks, θs, θr, Ss)
         if isnothing(m)
             m = 1 - 1 / n
         end
-        new(a, n, m, l, ks, θs, θr)
+        new(a, n, m, l, ks, θs, θr, Ss)
     end
 end
 
@@ -76,12 +77,13 @@ struct ModifiedMualemVanGenuchten <: ConstitutiveRelationships
     θr::Float64     # residual water content
     ψe::Float64     # air‑entry suction (> 0)  [L]
     Sc::Float64     # cut‑off saturation factor
-    function ModifiedMualemVanGenuchten(; a, n, m = nothing, l, ks, θs, θr, ψe)
+    SS::Float64
+    function ModifiedMualemVanGenuchten(; a, n, m = nothing, l, ks, θs, θr, ψe, Ss)
         if isnothing(m)
             m = 1 - 1 / n
         end
         Sc = (1 + abs(a * ψe)^n)^(-m)
-        new(a, n, m, l, ks, θs, θr, ψe, Sc)
+        new(a, n, m, l, ks, θs, θr, ψe, Sc, Ss)
     end
 end
 

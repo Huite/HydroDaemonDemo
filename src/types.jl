@@ -9,6 +9,9 @@ abstract type ImplicitState <: State end
 # Model specific types
 abstract type ConstitutiveRelationships end
 
+function aqueous_saturation(ψ, C::ConstitutiveRelationships)
+    return moisture_content(ψ, C) / C.θs
+end
 
 function prepare_state(parameters, initial)
     error("prepare_state not implemented for $(typeof(parameters))")

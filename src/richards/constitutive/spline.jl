@@ -3,13 +3,15 @@ struct SplineConstitutive{T} <: ConstitutiveRelationships
     k::T
     nknots::Int
     maxrelerror::Float64
+    θs::Float64
+    Ss::Float64
 end
 
 function Base.show(io::IO, sc::SplineConstitutive)
     splinename = Base.typename(typeof(sc.k)).name
     println(
         io,
-        "SplineConstitutive(θ=$splinename, k=$splinename, nknots=$(sc.nknots), maxrelerror=$(sc.maxrelerror))",
+        "SplineConstitutive(θ=$splinename, k=$splinename, nknots=$(sc.nknots), maxrelerror=$(sc.maxrelerror), θs=$(sc.θs), Ss=$(sc.Ss))",
     )
 end
 
@@ -17,16 +19,13 @@ function conductivity(ψ, hsc::SplineConstitutive)
     return hsc.k(ψ)
 end
 
-
 function dconductivity(ψ, hsc::SplineConstitutive)
     return DataInterpolations.derivative(hsc.k, ψ, 1)
 end
 
-
 function moisture_content(ψ, hsc::SplineConstitutive)
     return hsc.θ(ψ)
 end
-
 
 function specific_moisture_capacity(ψ, hsc::SplineConstitutive)
     return DataInterpolations.derivative(hsc.θ, ψ, 1)
@@ -139,5 +138,12 @@ function SplineConstitutive(
             nknots = ceil(Int, nknots * 1.5)
         end
     end
-    return SplineConstitutive(θspline, kspline, nknots, maxerror)
+    return SplineConstitutive(
+        θspline,
+        kspline,
+        nknots,
+        maxerror,
+        parameters.θs,
+        parameters.Ss,
+    )
 end

@@ -3,18 +3,16 @@ abstract type AbstractRichards <: Parameters end
 struct RichardsParameters{C,T,B} <: AbstractRichards
     constitutive::Vector{C}
     Δz::Float64
-    Ss::Float64
     forcing::MeteorologicalForcing
     bottomboundary::B
     topboundary::T
     n::Int
     currentforcing::Vector{Float64}  # P, ET
 
-    function RichardsParameters(constitutive, Δz, Ss, forcing, bottomboundary, topboundary)
+    function RichardsParameters(constitutive, Δz, forcing, bottomboundary, topboundary)
         new{eltype(constitutive),typeof(topboundary),typeof(bottomboundary)}(
             constitutive,
             Δz,
-            Ss,
             forcing,
             bottomboundary,
             topboundary,
@@ -37,7 +35,6 @@ function Base.show(io::IO, rp::AbstractRichards)
 
     println(io, "$rp_name{$c_name,$t_name,$b_name}:")
     println(io, "  Grid: $(rp.n) layers, Δz = $(rp.Δz)")
-    println(io, "  Storage: Ss = $(rp.Ss)")
     println(io, "  Constitutive: $(c_name)")
     println(io, "  Bottom boundary: ", rp.bottomboundary)
     println(io, "  Top boundary: ", rp.topboundary)
@@ -51,25 +48,16 @@ end
 struct RichardsParametersDAE{C,T,B} <: AbstractRichards
     constitutive::Vector{C}
     Δz::Float64
-    Ss::Float64
     forcing::MeteorologicalForcing
     bottomboundary::B
     topboundary::T
     n::Int
     currentforcing::Vector{Float64}  # P, ET
 
-    function RichardsParametersDAE(
-        constitutive,
-        Δz,
-        Ss,
-        forcing,
-        bottomboundary,
-        topboundary,
-    )
+    function RichardsParametersDAE(constitutive, Δz, forcing, bottomboundary, topboundary)
         new{eltype(constitutive),typeof(topboundary),typeof(bottomboundary)}(
             constitutive,
             Δz,
-            Ss,
             forcing,
             bottomboundary,
             topboundary,
@@ -85,12 +73,9 @@ function RichardsParametersDAE(p::RichardsParameters)
     return RichardsParametersDAE(
         p.constitutive,
         p.Δz,
-        p.Ss,
         p.forcing,
         p.bottomboundary,
         p.topboundary,
-        p.n,
-        zeros(2),
     )
 end
 

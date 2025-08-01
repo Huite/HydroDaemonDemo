@@ -132,17 +132,35 @@ function Base.show(io::IO, model::DiffEqHydrologicalModel)
     println(io, "  Parameters: ", p_name)
     tspan = model.integrator.sol.prob.tspan
     println(io, "  Time span: ", tspan)
+    println(io, "  Integrator: ", typeof(model.integrator).name.name)
+    println(io, "    Algorithm: ", typeof(model.integrator.alg).name.name)
+    if hasproperty(model.integrator.alg, :nlsolve)
+        nlsolver = model.integrator.alg.nlsolve
+        type_name = nameof(typeof(nlsolver))
+
+        # Map field values to their keyword names
+        kwargs = [
+            "κ=$(nlsolver.κ)",
+            "max_iter=$(nlsolver.max_iter)",
+            "fast_convergence_cutoff=$(nlsolver.fast_convergence_cutoff)",
+            "new_W_dt_cutoff=$(nlsolver.new_W_dt_cutoff)",
+            "always_new=$(nlsolver.always_new)",
+            "check_div=$(nlsolver.check_div)",
+            "relax=$(nlsolver.relax)",
+        ]
+        println(io, "    Non-linear solve: ", type_name, "(", join(kwargs, ", "), ")")
+    end
+    if hasproperty(model.integrator.alg, :linsolve)
+        linsolve_name = typeof(model.integrator.alg.linsolve).name.name
+        if linsolve_name == :Nothing
+            linsolve_name = "Default"
+        end
+        println(io, "    Linear solve: ", linsolve_name)
+    end
     println(io, "  Save points: ", length(model.saveat), " points")
     if !isempty(model.saveat)
         println(io, "    Range: [", first(model.saveat), ", ", last(model.saveat), "]")
     end
     # Output information
-    println(io, "  Output size: ", size(model.saved))
-    println(io, "  Integrator: ", typeof(model.integrator).name.name)
-    println(io, "    Algorithm: ", typeof(model.integrator.alg).name.name)
-    linsolve_name = typeof(model.integrator.alg.linsolve).name.name
-    if linsolve_name == :Nothing
-        linsolve_name = "Default"
-    end
-    println(io, "    Linear solve: ", linsolve_name)
+    print(io, "  Output size: ", size(model.saved))
 end

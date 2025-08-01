@@ -7,6 +7,7 @@
     ks::Float64
     θs::Float64
     θr::Float64
+    Ss::Float64
 end
 
 function conductivity(ψ, h::Haverkamp)

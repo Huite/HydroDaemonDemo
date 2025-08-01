@@ -169,7 +169,9 @@ function jacobian!(J, state, parameters::RichardsParameters, Δt)
     Δz = parameters.Δz
     for i = 1:parameters.n
         C = specific_moisture_capacity(state.ψ[i], parameters.constitutive[i])
-        J.d[i] -= (Δz * (C + parameters.Ss)) / Δt
+        Sa = aqueous_saturation(state.ψ[i], parameters.constitutive[i])
+        Ss = parameters.constitutive[i].Ss
+        J.d[i] -= (Δz * (C + Sa * Ss)) / Δt
     end
     return
 end
@@ -183,7 +185,9 @@ function waterbalance!(dψ, ψ, p::DiffEqParams{<:RichardsParameters}, t)
     Δz = parameters.Δz
     for i = 1:parameters.n
         C = specific_moisture_capacity(ψ[i], parameters.constitutive[i])
-        dψ[i] *= 1.0 / (Δz * (C + parameters.Ss))
+        Sa = aqueous_saturation(ψ[i], parameters.constitutive[i])
+        Ss = parameters.constitutive[i].Ss
+        dψ[i] *= 1.0 / (Δz * (C + Sa * Ss))
     end
     return
 end
@@ -211,7 +215,9 @@ function waterbalance_dae!(du, u, parameters::RichardsParametersDAE)
     for i = 1:parameters.n
         # Head-based Richards equation
         C = specific_moisture_capacity(ψ[i], parameters.constitutive[i])
-        dψ[i] /= (Δz * (C + parameters.Ss))
+        Sa = θ[i] / parameters.constitutive[i].θs
+        Ss = parameters.constitutive[i].Ss
+        dψ[i] /= (Δz * (C + Sa * Ss))
         # Algebraic constraint
         dθ[i] = θ[i] - moisture_content(ψ[i], parameters.constitutive[i])
     end
