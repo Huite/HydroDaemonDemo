@@ -1,19 +1,19 @@
 struct Bucket
-    area::Float
-    a::Float
-    b::Float
+    area::Float64
+    a::Float64
+    b::Float64
 end
 
 struct BucketCascade <: Parameters
     buckets::Vector{Bucket}
     forcing::MeteorologicalForcing
-    currentforcing::Vector{Float}
+    currentforcing::Vector{Float64}
 end
 
 function BucketCascade(
-    area::Vector{Float},
-    a::Vector{Float},
-    b::Vector{Float},
+    area::Vector{Float64},
+    a::Vector{Float64},
+    b::Vector{Float64},
     forcing::MeteorologicalForcing,
 )
     buckets = [Bucket(_area, _a, _b) for (_area, _a, _b) in zip(area, a, b)]

@@ -2,8 +2,8 @@ abstract type Relaxation end
 abstract type LineSearch <: Relaxation end
 
 struct ScalarRelaxation <: Relaxation
-    relax::Float
-    function ScalarRelaxation(relax::Float)
+    relax::Float64
+    function ScalarRelaxation(relax::Float64)
         0 <= relax < 1 ||
             throw(ArgumentError("Relaxation parameter must be in [0,1): got $relax"))
         new(relax)
@@ -23,10 +23,10 @@ function newton_step!(
 end
 
 @kwdef struct SimpleLineSearch <: LineSearch
-    a0::Float = 1.0  # initial step size
-    b::Float = 0.5  # backtracking reduction factor
-    c::Float = 1e-4  # Sufficient decrease for Armijo condition
-    minstep::Float = 1e-2
+    a0::Float64 = 1.0  # initial step size
+    b::Float64 = 0.5  # backtracking reduction factor
+    c::Float64 = 1e-4  # Sufficient decrease for Armijo condition
+    minstep::Float64 = 1e-2
     maxiter::Int = 5
 end
 
@@ -35,11 +35,11 @@ function compute_step(ls::SimpleLineSearch, _, α₂, _, _, _)
 end
 
 @kwdef struct QuadraticLineSearch <: LineSearch
-    a0::Float = 1.0  # initial step size
-    c::Float = 1e-4  # Sufficient decrease for Armijo condition
+    a0::Float64 = 1.0  # initial step size
+    c::Float64 = 1e-4  # Sufficient decrease for Armijo condition
     maxiter::Int = 5
-    low::Float = 0.01  # interpolation bounds
-    high::Float = 0.9  # interpolation bounds
+    low::Float64 = 0.01  # interpolation bounds
+    high::Float64 = 0.9  # interpolation bounds
 end
 
 function quadratic_minimum(α₂, L2₀, L2₂)
@@ -98,7 +98,7 @@ function cubic_minimum(α₁, α₂, L2₀, L2₁, L2₂)
 
     # Find the minimizer of the cubic
     # If coefficient of x³ is effectively zero, fall back to quadratic model
-    if abs(a) < eps(Float)
+    if abs(a) < eps(Float64)
         # For a quadratic model: minimum at x = -c/(2b)
         newstep = -c / (2 * b)
     else
@@ -124,11 +124,11 @@ end
 
 
 @kwdef struct CubicLineSearch <: LineSearch
-    a0::Float = 1.0  # initial step size
-    c::Float = 1e-4  # Sufficient decrease for Armijo condition
+    a0::Float64 = 1.0  # initial step size
+    c::Float64 = 1e-4  # Sufficient decrease for Armijo condition
     maxiter::Int = 5
-    low::Float = 0.01  # interpolation bounds
-    high::Float = 0.9  # interpolation bounds
+    low::Float64 = 0.01  # interpolation bounds
+    high::Float64 = 0.9  # interpolation bounds
 end
 
 function compute_step(ls::CubicLineSearch, α₁, α₂, L2₀, L2₁, L2₂)

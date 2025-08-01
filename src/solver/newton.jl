@@ -12,14 +12,14 @@ struct NewtonSolver{LS<:LinearSolver,R<:Relaxation}
     linearsolver::LS
     relax::R
     maxiter::Int
-    tolerance::Float
+    tolerance::Float64
 end
 
 function NewtonSolver(
     linearsolver::LinearSolver;
     relax::Relaxation = ScalarRelaxation(0.0),
     maxiter::Int = 100,
-    tolerance::Float = 1e-6,
+    tolerance::Float64 = 1e-6,
 )
     return NewtonSolver(linearsolver, relax, maxiter, tolerance)
 end

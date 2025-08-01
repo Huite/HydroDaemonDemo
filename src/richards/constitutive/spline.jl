@@ -2,7 +2,7 @@ struct SplineConstitutive{T} <: ConstitutiveRelationships
     θ::T
     k::T
     nknots::Int
-    maxrelerror::Float
+    maxrelerror::Float64
 end
 
 function Base.show(io::IO, sc::SplineConstitutive)

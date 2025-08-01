@@ -1,5 +1,5 @@
 struct FixedTimeStepper <: TimeStepper
-    Δt0::Float
+    Δt0::Float64
 end
 
 # Called in implicit model
@@ -21,13 +21,13 @@ function compute_timestep_size(
 end
 
 struct AdaptiveTimeStepper <: TimeStepper
-    Δt0::Float
+    Δt0::Float64
     n_increase::Int
-    increase::Float
+    increase::Float64
     n_decrease::Int
-    decrease::Float
-    failure::Float
-    Δtmin::Float
+    decrease::Float64
+    failure::Float64
+    Δtmin::Float64
     function AdaptiveTimeStepper(
         Δt0;
         n_increase = 5,
@@ -67,7 +67,7 @@ end
 
 
 struct CFLTimeStepper <: TimeStepper
-    Δt0::Float
-    target::Float
-    minstep::Float
+    Δt0::Float64
+    target::Float64
+    minstep::Float64
 end

@@ -1,10 +1,10 @@
 """Gardner-Russo constitutive relationships"""
 
 struct GardnerRusso <: GardnerRussoRelationships
-    a::Float    # Sorptive number [1/L]
-    ks::Float   # Saturated hydraulic conductivity [L/T]
-    θs::Float   # Saturated water content [-]
-    θr::Float   # Residual water content [-]
+    a::Float64   # Sorptive number [1/L]
+    ks::Float64  # Saturated hydraulic conductivity [L/T]
+    θs::Float64  # Saturated water content [-]
+    θr::Float64  # Residual water content [-]
 end
 
 function conductivity(ψ, gr::GardnerRusso)

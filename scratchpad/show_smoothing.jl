@@ -1,7 +1,6 @@
 ##
 using Plots
 ##
-const Float = Float64
 
 function min_smooth(a, b, m)
     return 0.5 * (a + b - √((a - b)^2 + m))
@@ -102,7 +101,7 @@ function sigmoid_activation(S, Smax, ω)
 end
 
 function activation(S, Smax)
-    return max(0.0, Float(S > Smax))
+    return max(0.0, Float64(S > Smax))
 end
 
 ##

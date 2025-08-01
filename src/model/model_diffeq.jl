@@ -3,7 +3,7 @@ Wrapper around the (mutable) state and the (immutable) parameters,
 as the DifferentialEquations uses a single parameters argument.
 """
 struct SavedResults
-    saved::Matrix{Float}
+    saved::Matrix{Float64}
     save_idx::Base.RefValue{Int}
 end
 
@@ -39,8 +39,8 @@ end
 @kwdef struct SolverConfig
     alg::Any
     force_dtmin::Bool = false
-    abstol::Float = 1e-6
-    reltol::Float = 1e-6
+    abstol::Float64 = 1e-6
+    reltol::Float64 = 1e-6
     maxiters::Int = 100
     autodiff::Bool = true
     detect_sparsity::Bool = false
@@ -48,8 +48,8 @@ end
 
 struct DiffEqHydrologicalModel{T}
     integrator::T
-    saveat::Vector{Float}
-    saved::Matrix{Float}
+    saveat::Vector{Float64}
+    saved::Matrix{Float64}
 end
 
 function save_state!(integrator)
@@ -62,7 +62,7 @@ end
 
 function DiffEqHydrologicalModel(
     parameters::Parameters,
-    initial::Vector{Float},
+    initial::Vector{Float64},
     tspan,
     saveat,
     solverconfig::SolverConfig,

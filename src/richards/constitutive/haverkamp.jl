@@ -1,12 +1,12 @@
 """Haverkamp constitutive relationship."""
 @kwdef struct Haverkamp <: ConstitutiveRelationships
-    a::Float
-    B::Float
-    y::Float
-    A::Float
-    ks::Float
-    θs::Float
-    θr::Float
+    a::Float64
+    B::Float64
+    y::Float64
+    A::Float64
+    ks::Float64
+    θs::Float64
+    θr::Float64
 end
 
 function conductivity(ψ, h::Haverkamp)

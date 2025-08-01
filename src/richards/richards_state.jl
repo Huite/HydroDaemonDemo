@@ -1,8 +1,8 @@
 struct RichardsState <: State
-    ψ::Vector{Float}
-    ψ_old::Vector{Float}
-    θ_old::Vector{Float}
-    ∇q::Vector{Float}
+    ψ::Vector{Float64}
+    ψ_old::Vector{Float64}
+    θ_old::Vector{Float64}
+    ∇q::Vector{Float64}
 end
 
 """Return the primary state."""

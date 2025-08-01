@@ -1,14 +1,14 @@
 struct Fuse070Parameters <: Parameters
-    ϕtens::Float
-    S1max::Float
-    b::Float
-    ku::Float
-    c::Float
-    v::Float
-    m::Float
-    ω::Float
+    ϕtens::Float64
+    S1max::Float64
+    b::Float64
+    ku::Float64
+    c::Float64
+    v::Float64
+    m::Float64
+    ω::Float64
     forcing::MeteorologicalForcing
-    currentforcing::Vector{Float}
+    currentforcing::Vector{Float64}
 end
 
 function Fuse070Parameters(forcing)

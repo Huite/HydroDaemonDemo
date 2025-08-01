@@ -3,19 +3,19 @@ abstract type BrooksCorey <: ConstitutiveRelationships end
 
 """Brooks-Corey constitutive relationships"""
 struct BrooksCoreyAnalytic <: BrooksCorey
-    ψb::Float   # Bubbling pressure (air entry pressure) [L]
-    λ::Float    # Pore size distribution index [-]
-    ks::Float   # Saturated hydraulic conductivity [L/T]
-    θs::Float   # Saturated water content [-]
-    θr::Float   # Residual water content [-]
+    ψb::Float64  # Bubbling pressure (air entry pressure) [L]
+    λ::Float64   # Pore size distribution index [-]
+    ks::Float64  # Saturated hydraulic conductivity [L/T]
+    θs::Float64  # Saturated water content [-]
+    θr::Float64  # Residual water content [-]
 end
 
 struct BrooksCoreyAutodiff <: BrooksCorey
-    ψb::Float   # Bubbling pressure (air entry pressure) [L]
-    λ::Float    # Pore size distribution index [-]
-    ks::Float   # Saturated hydraulic conductivity [L/T]
-    θs::Float   # Saturated water content [-]
-    θr::Float   # Residual water content [-]
+    ψb::Float64  # Bubbling pressure (air entry pressure) [L]
+    λ::Float64   # Pore size distribution index [-]
+    ks::Float64  # Saturated hydraulic conductivity [L/T]
+    θs::Float64  # Saturated water content [-]
+    θr::Float64  # Residual water content [-]
 end
 
 function effective_saturation(ψ, bc::BrooksCorey)

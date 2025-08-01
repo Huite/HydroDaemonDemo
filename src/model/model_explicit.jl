@@ -1,15 +1,15 @@
 struct ExplicitHydrologicalModel{P<:Parameters,S<:State,T<:TimeStepper} <: HydrologicalModel
     parameters::P  # Physical parameters
     state::S  # State and dependent variables
-    tspan::Tuple{Float,Float}
-    saveat::Vector{Float}  # frequency
-    saved::Matrix{Float}  # output
+    tspan::Tuple{Float64,Float64}
+    saveat::Vector{Float64}  # frequency
+    saved::Matrix{Float64}  # output
     timestepper::T
 end
 
 function ExplicitHydrologicalModel(
     parameters::Parameters,
-    initial::Vector{Float},
+    initial::Vector{Float64},
     tspan,
     saveat,
     timestepper::TimeStepper,

@@ -2,24 +2,23 @@ using DifferentialEquations
 using Plots
 using LinearAlgebra
 
-const Float = Float64
 
 struct Haverkamp
     # Haverkamp
-    α::Float
-    β::Float
-    γ::Float
-    A::Float
-    ks::Float
-    θs::Float
-    θr::Float
+    α::Float64
+    β::Float64
+    γ::Float64
+    A::Float64
+    ks::Float64
+    θs::Float64
+    θr::Float64
     # Specific storage coefficient
-    SS::Float
+    Ss::Float64
     # Boundary conditions
-    ψtop::Float
-    ψbot::Float
+    ψtop::Float64
+    ψbot::Float64
     # Geometry
-    Δz::Float
+    Δz::Float64
     # Number of cells
     n::Int
 end
@@ -61,7 +60,7 @@ end
 
 function storage_coefficient(ψ, p)
     C = specific_moisture_capacity(ψ, p)
-    return p.Δz * (C + p.SS)
+    return p.Δz * C
 end
 
 function massmatrix_richards!(du, u, p, t)
@@ -83,7 +82,7 @@ function massmatrix_richards!(du, u, p, t)
     ∇q[end] += topflux(ψu, p, k)
 
     # Divide by C + SS
-    SS = [storage_coefficient(ψ, p) for ψ in ψu]
+    Ss = [storage_coefficient(ψ, p) for ψ in ψu]
     @views ∇q ./= SS
 
     # Formulate algebraic constraint
@@ -102,7 +101,7 @@ p = Haverkamp(
     ks = 0.00944,
     θs = 0.287,
     θr = 0.075,
-    SS = 1e-6,
+    Ss = 1e-6,
     ψtop = -20.5,
     ψbot = -61.5,
     Δz = 1.0,

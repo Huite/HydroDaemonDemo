@@ -113,7 +113,7 @@ function dsigmoid_activation(S, Smax, ω)
 end
 
 function activation(S, Smax)
-    return max(0.0, Float(S > Smax))
+    return max(0.0, Float64(S > Smax))
 end
 
 function dactivation(S, Smax)

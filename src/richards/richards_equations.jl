@@ -28,8 +28,8 @@ end
 
 # Store k value since it never changes
 struct HeadBoundary
-    ψ::Float
-    k::Float
+    ψ::Float64
+    k::Float64
 end
 
 function HeadBoundary(ψ, constitutive::ConstitutiveRelationships)

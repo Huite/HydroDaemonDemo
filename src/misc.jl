@@ -27,9 +27,10 @@ df_transformed = transform(
     df_selected,
     :YYYYMMDD => ByRow(x -> Date(string(x), dateformat"yyyymmdd")) => :Date,
     :RH =>
-        ByRow(x -> coalesce(max(0, something(tryparse(Float, x), -1)) / 10.0, 0)) => :P,
+        ByRow(x -> coalesce(max(0, something(tryparse(Float64, x), -1)) / 10.0, 0)) =>
+            :P,
     :EV24 =>
-        ByRow(x -> coalesce(max(0, something(tryparse(Float, x), -1)) / 10.0, 0)) =>
+        ByRow(x -> coalesce(max(0, something(tryparse(Float64, x), -1)) / 10.0, 0)) =>
             :ET,
 )
 df = select(

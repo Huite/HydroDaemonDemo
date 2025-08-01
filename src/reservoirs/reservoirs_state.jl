@@ -1,7 +1,7 @@
 struct CascadeState <: State
-    S::Vector{Float}
-    dS::Vector{Float}
-    Sold::Vector{Float}
+    S::Vector{Float64}
+    dS::Vector{Float64}
+    Sold::Vector{Float64}
 end
 
 function primary(state::CascadeState)

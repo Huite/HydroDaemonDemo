@@ -8,11 +8,11 @@ abstract type LinearSolver end
 """Tridiagonal linear solver."""
 struct LinearSolverThomas <: LinearSolver
     n::Int
-    J::Tridiagonal{Float,Vector{Float}}
-    rhs::Vector{Float}
-    ϕ::Vector{Float}
-    y::Vector{Float}
-    B::Vector{Float}
+    J::Tridiagonal{Float64,Vector{Float64}}
+    rhs::Vector{Float64}
+    ϕ::Vector{Float64}
+    y::Vector{Float64}
+    B::Vector{Float64}
     function LinearSolverThomas(n)
         J = Tridiagonal(zeros(n - 1), zeros(n), zeros(n - 1))
         new(n, J, zeros(n), zeros(n), zeros(n), zeros(n))
@@ -50,10 +50,10 @@ end
 
 struct LinearSolverLU <: LinearSolver
     n::Int
-    J::Tridiagonal{Float,Vector{Float}}
-    F::LU{Float,Tridiagonal{Float,Vector{Float}}}
-    rhs::Vector{Float}
-    ϕ::Vector{Float}
+    J::Tridiagonal{Float64,Vector{Float64}}
+    F::LU{Float64,Tridiagonal{Float64,Vector{Float64}}}
+    rhs::Vector{Float64}
+    ϕ::Vector{Float64}
     function LinearSolverLU(n)
         J = Tridiagonal(zeros(n - 1), zeros(n), zeros(n - 1))
         new(n, J, lu(J; check = false), zeros(n), zeros(n))

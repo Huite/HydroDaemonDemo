@@ -1,7 +1,7 @@
 struct MeteorologicalForcing
-    t::Vector{Float}
-    precipitation::Vector{Float}
-    evaporation::Vector{Float}
+    t::Vector{Float64}
+    precipitation::Vector{Float64}
+    evaporation::Vector{Float64}
 end
 
 function find_rates(forcing::MeteorologicalForcing, t)

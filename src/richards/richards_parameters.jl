@@ -2,13 +2,13 @@ abstract type AbstractRichards <: Parameters end
 
 struct RichardsParameters{C,T,B} <: AbstractRichards
     constitutive::Vector{C}
-    Δz::Float
-    Ss::Float
+    Δz::Float64
+    Ss::Float64
     forcing::MeteorologicalForcing
     bottomboundary::B
     topboundary::T
     n::Int
-    currentforcing::Vector{Float}  # P, ET
+    currentforcing::Vector{Float64}  # P, ET
 
     function RichardsParameters(constitutive, Δz, Ss, forcing, bottomboundary, topboundary)
         new{eltype(constitutive),typeof(topboundary),typeof(bottomboundary)}(
@@ -50,13 +50,13 @@ end
 
 struct RichardsParametersDAE{C,T,B} <: AbstractRichards
     constitutive::Vector{C}
-    Δz::Float
-    Ss::Float
+    Δz::Float64
+    Ss::Float64
     forcing::MeteorologicalForcing
     bottomboundary::B
     topboundary::T
     n::Int
-    currentforcing::Vector{Float}  # P, ET
+    currentforcing::Vector{Float64}  # P, ET
 
     function RichardsParametersDAE(
         constitutive,

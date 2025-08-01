@@ -11,8 +11,6 @@ using SparseArrays
 using SparseConnectivityTracer: TracerSparsityDetector, jacobian_sparsity
 import DataInterpolations
 
-const Float = Float64
-
 include("types.jl")
 
 # Newton-Raphson solver
