@@ -1,8 +1,16 @@
-struct SplineConstitutive{T<:DataInterpolations.CubicHermiteSpline} <:
-       ConstitutiveRelationships
+struct SplineConstitutive{T} <: ConstitutiveRelationships
     θ::T
     k::T
-    knots::Vector{Float}
+    nknots::Int
+    maxrelerror::Float
+end
+
+function Base.show(io::IO, sc::SplineConstitutive)
+    splinename = Base.typename(typeof(sc.k)).name
+    println(
+        io,
+        "SplineConstitutive(θ=$splinename, k=$splinename, nknots=$(sc.nknots), maxrelerror=$(sc.maxrelerror))",
+    )
 end
 
 function conductivity(ψ, hsc::SplineConstitutive)
@@ -131,5 +139,5 @@ function SplineConstitutive(
             nknots = ceil(Int, nknots * 1.5)
         end
     end
-    return SplineConstitutive(θspline, kspline, t), maxerror
+    return SplineConstitutive(θspline, kspline, nknots, maxerror)
 end

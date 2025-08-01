@@ -18,7 +18,6 @@ include("types.jl")
 # Newton-Raphson solver
 include("solver/linear.jl")
 include("solver/relax.jl")
-include("solver/pseudotransient.jl")
 include("solver/timestep.jl")
 include("solver/newton.jl")
 

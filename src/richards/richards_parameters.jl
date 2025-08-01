@@ -9,18 +9,42 @@ struct RichardsParameters{C,T,B} <: AbstractRichards
     topboundary::T
     n::Int
     currentforcing::Vector{Float}  # P, ET
+
+    function RichardsParameters(constitutive, Δz, Ss, forcing, bottomboundary, topboundary)
+        new{eltype(constitutive),typeof(topboundary),typeof(bottomboundary)}(
+            constitutive,
+            Δz,
+            Ss,
+            forcing,
+            bottomboundary,
+            topboundary,
+            length(constitutive),
+            zeros(Float64, 2),
+        )
+    end
 end
 
-function RichardsParameters(constitutive, Δz, Ss, forcing, bottomboundary, topboundary)
-    return RichardsParameters(
-        constitutive,
-        Δz,
-        Ss,
-        forcing,
-        bottomboundary,
-        topboundary,
-        length(constitutive),
-        zeros(2),
+function Base.show(io::IO, rp::AbstractRichards)
+    C = eltype(rp.constitutive)
+    T = typeof(rp.topboundary)
+    B = typeof(rp.bottomboundary)
+
+    # Get clean type names
+    rp_name = string(Base.typename(typeof(rp)).name)
+    c_name = string(Base.typename(C).name)
+    t_name = string(Base.typename(T).name)
+    b_name = string(Base.typename(B).name)
+
+    println(io, "$rp_name{$c_name,$t_name,$b_name}:")
+    println(io, "  Grid: $(rp.n) layers, Δz = $(rp.Δz)")
+    println(io, "  Storage: Ss = $(rp.Ss)")
+    println(io, "  Constitutive: $(c_name)")
+    println(io, "  Bottom boundary: ", rp.bottomboundary)
+    println(io, "  Top boundary: ", rp.topboundary)
+    println(io, "  Meteorological forcing: $(length(rp.forcing.t)) time steps")
+    print(
+        io,
+        "  Current forcing: P = $(rp.currentforcing[1]), ET = $(rp.currentforcing[2])",
     )
 end
 
@@ -33,21 +57,28 @@ struct RichardsParametersDAE{C,T,B} <: AbstractRichards
     topboundary::T
     n::Int
     currentforcing::Vector{Float}  # P, ET
-end
 
-
-function RichardsParametersDAE(; constitutive, Δz, Ss, forcing, bottomboundary, topboundary)
-    return RichardsParametersDAE(
+    function RichardsParametersDAE(
         constitutive,
         Δz,
         Ss,
         forcing,
         bottomboundary,
         topboundary,
-        length(constitutive),
-        zeros(2),
     )
+        new{eltype(constitutive),typeof(topboundary),typeof(bottomboundary)}(
+            constitutive,
+            Δz,
+            Ss,
+            forcing,
+            bottomboundary,
+            topboundary,
+            length(constitutive),
+            zeros(Float64, 2),
+        )
+    end
 end
+
 
 # Simple conversion function
 function RichardsParametersDAE(p::RichardsParameters)

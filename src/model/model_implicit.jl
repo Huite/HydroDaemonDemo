@@ -4,15 +4,30 @@ struct ImplicitHydrologicalModel{
     T<:TimeStepper,
     LS<:LinearSolver,
     R<:Relaxation,
-    PT<:OptionalPTC,
 } <: HydrologicalModel
     parameters::P  # Physical parameters
     state::S  # State and dependent variables
-    solver::NewtonSolver{LS,R,PT}  # Non-linear Newton-Raphson solver
+    solver::NewtonSolver{LS,R}  # Non-linear Newton-Raphson solver
     tspan::Tuple{Float,Float}
     saveat::Vector{Float}  # frequency
     saved::Matrix{Float}  # output
     timestepper::T
+end
+
+function Base.show(io::IO, model::ImplicitHydrologicalModel)
+    p_name = Base.typename(typeof(model.parameters)).name
+    println(io, "ImplicitHydrologicalModel:")
+    println(io, "  Parameters: ", p_name)
+    println(io, "  Time span: ", model.tspan)
+    println(io, "  Save points: ", length(model.saveat), " points")
+    if !isempty(model.saveat)
+        println(io, "    Range: [", first(model.saveat), ", ", last(model.saveat), "]")
+    end
+    println(io, "  Output size: ", size(model.saved))
+    println(io, "  Solver: ", typeof(model.solver))
+    println(io, "    Linear solver: ", typeof(model.solver).parameters[1])
+    println(io, "    Relaxation: ", typeof(model.solver).parameters[2])
+    print(io, "  Time stepper: ", typeof(model.timestepper))
 end
 
 function ImplicitHydrologicalModel(

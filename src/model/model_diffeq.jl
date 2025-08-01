@@ -7,9 +7,27 @@ struct SavedResults
     save_idx::Base.RefValue{Int}
 end
 
+function Base.show(io::IO, sr::SavedResults)
+    n_vars, n_timesteps = size(sr.saved)
+    nsave = sr.save_idx[] - 1
+    print(
+        io,
+        "SavedResults($(n_vars) variables x $(n_timesteps) timesteps, saved: $(nsave)/$(n_timesteps))",
+    )
+end
+
 struct DiffEqParams{P}
     parameters::P
     results::SavedResults
+end
+
+function Base.show(io::IO, dep::DiffEqParams)
+    P = typeof(dep.parameters)
+    p_name = string(Base.typename(P).name)
+
+    println(io, "DiffEqParams{$p_name}:")
+    println(io, "  Parameters: ", dep.parameters)
+    print(io, "  Results: ", dep.results)
 end
 
 function update_forcing!(integrator)
@@ -106,4 +124,25 @@ function reset_and_run!(model::DiffEqHydrologicalModel, initial)
     reinit!(model.integrator, u0)
     run!(model)
     return
+end
+
+function Base.show(io::IO, model::DiffEqHydrologicalModel)
+    p_name = Base.typename(typeof(model.integrator.p.parameters)).name
+    println(io, "DiffEqHydrologicalModel:")
+    println(io, "  Parameters: ", p_name)
+    tspan = model.integrator.sol.prob.tspan
+    println(io, "  Time span: ", tspan)
+    println(io, "  Save points: ", length(model.saveat), " points")
+    if !isempty(model.saveat)
+        println(io, "    Range: [", first(model.saveat), ", ", last(model.saveat), "]")
+    end
+    # Output information
+    println(io, "  Output size: ", size(model.saved))
+    println(io, "  Integrator: ", typeof(model.integrator).name.name)
+    println(io, "    Algorithm: ", typeof(model.integrator.alg).name.name)
+    linsolve_name = typeof(model.integrator.alg.linsolve).name.name
+    if linsolve_name == :Nothing
+        linsolve_name = "Default"
+    end
+    println(io, "    Linear solve: ", linsolve_name)
 end

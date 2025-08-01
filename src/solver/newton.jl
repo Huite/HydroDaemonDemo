@@ -1,6 +1,5 @@
 """ 
-    Non-linear Newton-Raphson solver, with options for backtracking/line search
-    and pseudotransient continuation.
+    Non-linear Newton-Raphson solver, with options for backtracking/line search.
 
 Requires a state type with the following associated methods:
 
@@ -9,10 +8,9 @@ Requires a state type with the following associated methods:
 * copy_state!
 
 """
-struct NewtonSolver{LS<:LinearSolver,R<:Relaxation,PT<:OptionalPTC}
+struct NewtonSolver{LS<:LinearSolver,R<:Relaxation}
     linearsolver::LS
     relax::R
-    pseudotransient::PT
     maxiter::Int
     tolerance::Float
 end
@@ -20,11 +18,24 @@ end
 function NewtonSolver(
     linearsolver::LinearSolver;
     relax::Relaxation = ScalarRelaxation(0.0),
-    pseudotransient::OptionalPTC = nothing,
     maxiter::Int = 100,
     tolerance::Float = 1e-6,
 )
-    return NewtonSolver(linearsolver, relax, pseudotransient, maxiter, tolerance)
+    return NewtonSolver(linearsolver, relax, maxiter, tolerance)
+end
+
+function Base.show(io::IO, solver::NewtonSolver)
+    LS = typeof(solver.linearsolver)
+    R = typeof(solver.relax)
+
+    # Get short names for the types
+    ls_name = string(LS)
+    r_name = string(R)
+
+    print(
+        io,
+        "NewtonSolver{$ls_name,$r_name}(maxiter=$(solver.maxiter), tol=$(solver.tolerance))",
+    )
 end
 
 function converged(newton::NewtonSolver)
@@ -32,7 +43,7 @@ function converged(newton::NewtonSolver)
     return maxresidual < newton.tolerance
 end
 
-function solve!(newton::NewtonSolver{LS,R,Nothing}, state, parameters, Δt) where {LS,R}
+function solve!(newton::NewtonSolver{LS,R}, state, parameters, Δt) where {LS,R}
     # Maintain old state for time stepping.
     copy_state!(state, parameters)
     # Compute initial residual
@@ -51,48 +62,3 @@ function solve!(newton::NewtonSolver{LS,R,Nothing}, state, parameters, Δt) wher
     end
     return false, newton.maxiter
 end
-
-function pseudotimestep!(newton, state)
-    ptc = newton.pseudotransient
-    apply_ptc!(ptc.method, newton.linearsolver, ptc.stepselection.Δt)
-    linearsolve!(newton.linearsolver)
-    newton_step!(newton.relax, newton.linearsolver, state, parameters, Δt)
-    ptc_success = check_ptc!(newton.pseudotransient, state)
-    return ptc_success
-end
-
-function solve!(
-    newton::NewtonSolver{LS,R,PTC},
-    state,
-    parameters,
-    Δt,
-) where {LS,R,PTC<:PseudoTransientContinuation}
-    # Maintain old state for time stepping.
-    copy_state!(state, parameters)
-    # Synchronize dependent variables.
-    residual!(newton.linearsolver.rhs, state, parameters, Δt)
-
-    # Initial step
-    firststepsize!(newton.pseudotransient.stepselection)
-
-    for i = 1:newton.maxiter
-        # Formulate and compute the residual.
-        # Check the residual for convergence.
-        if converged(newton)
-            return true, i
-        end
-        jacobian!(newton.linearsolver.J, state, parameters, Δt)
-
-        # Keep trying smaller time steps until we get a plausible answer.
-        # Generally needs a single iteration.
-        ptc_success = false
-        while !ptc_success
-            ptc_success = pseudotimestep!(newton, state)
-        end
-
-        # Compute new step size based on residual evolution.
-        stepsize!(newton.pseudotransient.stepselection, state, newton.linearsolver.rhs)
-    end
-    return false, i
-end
-
