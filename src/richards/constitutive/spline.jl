@@ -41,7 +41,7 @@ function logknots(ψmin, ψe, offset, nknots)
 end
 
 """
-   SplineConstitutive(parameters; kwargs...) -> (spline, maxerror)
+   SplineConstitutive(parameters; kwargs...) -> spline
 
 Create a spline-based approximation of soil hydraulic functions for numerically stable 
 evaluation in Richards equation solvers.
@@ -63,7 +63,6 @@ derivatives that avoid numerical issues with steep gradients near saturation.
 
 # Returns
 - `spline`: `SplineConstitutive` object with interpolated θ(ψ) and K(ψ) functions
-- `maxerror`: Maximum relative error achieved in the approximation
 
 # Details
 The algorithm uses logarithmically-spaced knot points concentrated near the air entry 
@@ -73,6 +72,8 @@ of knots is increased by 50% and the process repeats.
 The minimum pressure `ψmin` is automatically adjusted to avoid regions where hydraulic 
 conductivity approaches zero, preventing division-by-zero errors in relative error 
 calculations.
+
+The maximum relative error is returned for diagnostic purposes under `.maxrelerror`.
 """
 function SplineConstitutive(
     parameters;

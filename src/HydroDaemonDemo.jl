@@ -3,6 +3,8 @@ module HydroDaemonDemo
 using Revise
 using LinearAlgebra
 using DifferentialEquations
+# Bencharmking
+using BenchmarkTools
 # For some basic IO
 using CSV
 using DataFrames
@@ -10,6 +12,15 @@ using Dates
 using SparseArrays
 using SparseConnectivityTracer: TracerSparsityDetector, jacobian_sparsity
 import DataInterpolations
+
+# Provide a CustomController
+import OrdinaryDiffEqCore: AbstractController
+import OrdinaryDiffEqCore:
+    stepsize_controller!,
+    accept_step_controller,
+    reject_step_controller,
+    step_accept_controller!,
+    step_reject_controller!
 
 include("types.jl")
 
@@ -43,5 +54,8 @@ include("richards/constitutive/spline.jl")
 include("richards/richards_parameters.jl")
 include("richards/richards_state.jl")
 include("richards/richards_equations.jl")
+
+# Case utilities
+include("case_helpers/richards_case_helpers.jl")
 
 end

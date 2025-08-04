@@ -77,7 +77,7 @@ struct ModifiedMualemVanGenuchten <: ConstitutiveRelationships
     θr::Float64     # residual water content
     ψe::Float64     # air‑entry suction (> 0)  [L]
     Sc::Float64     # cut‑off saturation factor
-    SS::Float64
+    Ss::Float64
     function ModifiedMualemVanGenuchten(; a, n, m = nothing, l, ks, θs, θr, ψe, Ss)
         if isnothing(m)
             m = 1 - 1 / n

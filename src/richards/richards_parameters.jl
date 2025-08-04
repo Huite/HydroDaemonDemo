@@ -9,7 +9,7 @@ struct RichardsParameters{C,T,B} <: AbstractRichards
     n::Int
     currentforcing::Vector{Float64}  # P, ET
 
-    function RichardsParameters(constitutive, Δz, forcing, bottomboundary, topboundary)
+    function RichardsParameters(; constitutive, Δz, forcing, bottomboundary, topboundary)
         new{eltype(constitutive),typeof(topboundary),typeof(bottomboundary)}(
             constitutive,
             Δz,

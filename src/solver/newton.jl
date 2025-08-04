@@ -27,11 +27,9 @@ end
 function Base.show(io::IO, solver::NewtonSolver)
     LS = typeof(solver.linearsolver)
     R = typeof(solver.relax)
-
     # Get short names for the types
     ls_name = string(LS)
     r_name = string(R)
-
     print(
         io,
         "NewtonSolver{$ls_name,$r_name}(maxiter=$(solver.maxiter), tol=$(solver.tolerance))",
