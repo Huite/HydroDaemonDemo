@@ -71,15 +71,9 @@ function DiffEqHydrologicalModel(
     saveat = create_saveat(saveat, forcing, tspan)
     pushfirst!(saveat, tstart)
 
-    f, initial, abstol, reltol = prepare_ode_function(
-        parameters,
-        initial,
-        solverconfig.detect_sparsity,
-        solverconfig.abstol,
-        solverconfig.reltol,
-    )
-
     nstate = length(initial)
+    f = prepare_ode_function(parameters, nstate, solverconfig.detect_sparsity)
+
     nsave = length(saveat)
     saved = zeros(nstate, nsave)
     savedresults = SavedResults(saved, 1)
@@ -105,8 +99,8 @@ function DiffEqHydrologicalModel(
         callback = callbacks,
         tstops = tstops,
         isoutofdomain = isoutofdomain,
-        abstol = abstol,
-        reltol = reltol,
+        abstol = solverconfig.abstol,
+        reltol = solverconfig.reltol,
         maxiters = solverconfig.maxiters,
     )
     return DiffEqHydrologicalModel(integrator, saveat, saved)

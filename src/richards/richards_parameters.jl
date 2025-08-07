@@ -49,39 +49,9 @@ end
 function create_tolvectors(nstate, nflows, abstol, reltol)
     vector_abstol = fill(abstol, nstate + nflows)
     vector_reltol = fill(reltol, nstate + nflows)
-    @views vector_abstol[end-nflows:end] .= 1e12
-    @views vector_reltol[end-nflows:end] .= 1e12
+    @views vector_abstol[end-nflows+1:end] .= 1e12
+    @views vector_reltol[end-nflows+1:end] .= 1e12
     return vector_abstol, vector_reltol
-end
-
-function prepare_ode_function(
-    p::RichardsParameters,
-    initial,
-    detect_sparsity,
-    abstol,
-    reltol,
-)
-    nstate = length(initial)
-    nflows = 2
-    # Make room for qbottom, qtop
-    if detect_sparsity
-        J = jacobian_sparsity(
-            (du, u) -> waterbalance!(du, u, p),
-            zeros(nstate + nflows),
-            zeros(nstate + nflows),
-            TracerSparsityDetector(),
-        )
-    else
-        J = Tridiagonal(
-            zeros(nstate + nflows - 1),
-            zeros(nstate + nflows),
-            zeros(nstate + nflows - 1),
-        )
-    end
-
-    f = ODEFunction(waterbalance!; jac_prototype = J)
-    vabstol, vreltol = create_tolvectors(nstate, nflows, abstol, reltol)
-    return f, vcat(initial, zeros(nflows)), vabstol, vreltol
 end
 
 struct RichardsParametersDAE{C,T,B} <: AbstractRichards
@@ -118,19 +88,16 @@ function RichardsParametersDAE(p::RichardsParameters)
     )
 end
 
-function prepare_ode_function(p::RichardsParametersDAE, initial, detect_sparsity)
-    nstate = length(initial)
-    nflows = 2
+function prepare_ode_function(p::RichardsParametersDAE, nstate, detect_sparsity)
     n = Int(nstate / 2)
     if detect_sparsity
         J = jacobian_sparsity(
             (du, u) -> waterbalance_dae!(du, u, p),
-            zeros(nstate + nflows),
-            zeros(nstate + nflows),
+            zeros(nstate),
+            zeros(nstate),
             TracerSparsityDetector(),
         )
     else
-        # TODO: sparsity pattern for qtop, qbot!
         # Construct sparsity pattern prototype
         i = Int[]
         j = Int[]
@@ -145,11 +112,9 @@ function prepare_ode_function(p::RichardsParametersDAE, initial, detect_sparsity
         # lower-left block (–C)
         append!(i, n+1:2n)
         append!(j, 1:n)
-        J = sparse(i, j, ones(length(i)), nstate + 2, nstate + 2)
+        J = sparse(i, j, ones(length(i)), nstate, nstate)
     end
-    M = Diagonal([ones(n); zeros(n); ones(nflows)])
+    M = Diagonal([ones(n); zeros(n)])
     f = ODEFunction(waterbalance!; mass_matrix = M, jac_prototype = J)
-    nflows = 2
-    vabstol, vreltol = create_tolvectors(nstate, nflows, abstol, reltol)
-    return f, vcat(initial, zeros(nflows)), vabstol, vreltol
+    return f
 end
