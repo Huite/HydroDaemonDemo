@@ -99,10 +99,11 @@ function waterbalance!(∇q, ψ, parameters::AbstractRichards)
     end
 
     # Boundary conditions
-    ∇q[1] += bottomflux(ψ, parameters, bottomboundary)
-    ∇q[end] += topflux(ψ, parameters, topboundary)
-    ∇q[end] += forcingflux(ψ, parameters)
-    return
+    qbot = bottomflux(ψ, parameters, bottomboundary)
+    qtop = topflux(ψ, parameters, topboundary) + forcingflux(ψ, parameters)
+    ∇q[1] += qbot
+    ∇q[end] += qtop
+    return qbot, qtop
 end
 
 function explicit_timestep!(state::RichardsState, parameters::RichardsParameters, Δt)
@@ -179,9 +180,11 @@ end
 # Wrapped for DifferentialEquations
 # This is the "ψ-based" Richards equation.
 
-function waterbalance!(dψ, ψ, p::DiffEqParams{<:RichardsParameters}, t)
+function waterbalance!(du, u, p::DiffEqParams{<:RichardsParameters}, t)
+    @views dψ = du[1:end-2]
+    @views ψ = u[1:end-2]
     parameters = p.parameters
-    waterbalance!(dψ, ψ, parameters)
+    qbot, qtop = waterbalance!(dψ, ψ, parameters)
     Δz = parameters.Δz
     for i = 1:parameters.n
         C = specific_moisture_capacity(ψ[i], parameters.constitutive[i])
@@ -189,6 +192,8 @@ function waterbalance!(dψ, ψ, p::DiffEqParams{<:RichardsParameters}, t)
         Ss = parameters.constitutive[i].Ss
         dψ[i] *= 1.0 / (Δz * (C + Sa * Ss))
     end
+    du[end-1] = qbot
+    du[end] = qtop
     return
 end
 
@@ -200,10 +205,10 @@ function waterbalance_dae!(du, u, parameters::RichardsParametersDAE)
     n = parameters.n
     dψ = @view du[1:n]  # Acts as ∇q first
     ψ = @view u[1:n]
-    dθ = @view du[n+1:end]
-    θ = @view u[n+1:end]
+    dθ = @view du[n+1:end-2]
+    θ = @view u[n+1:end-2]
 
-    waterbalance!(dψ, ψ, parameters)
+    qbot, qtop = waterbalance!(dψ, ψ, parameters)
     Δz = parameters.Δz
     for i = 1:parameters.n
         # Head-based Richards equation
@@ -214,6 +219,8 @@ function waterbalance_dae!(du, u, parameters::RichardsParametersDAE)
         # Algebraic constraint
         dθ[i] = θ[i] - moisture_content(ψ[i], parameters.constitutive[i])
     end
+    du[end-1] = qbot
+    du[end] = qtop
     return
 end
 

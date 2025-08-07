@@ -59,6 +59,15 @@ function save_state!(integrator)
     return
 end
 
+function create_tolvectors(nstate, nflows, abstol, reltol)
+    vector_abstol = fill(abstol, nstate)
+    vector_reltol = fill(reltol, nstate)
+    @views vector_abstol[end-nflows+1:end] .= 1e12
+    @views vector_reltol[end-nflows+1:end] .= 1e12
+    return vector_abstol, vector_reltol
+end
+
+
 function DiffEqHydrologicalModel(
     parameters::Parameters,
     initial::Vector{Float64},
@@ -71,8 +80,8 @@ function DiffEqHydrologicalModel(
     saveat = create_saveat(saveat, forcing, tspan)
     pushfirst!(saveat, tstart)
 
-    nstate = length(initial)
-    f = prepare_ode_function(parameters, nstate, solverconfig.detect_sparsity)
+    nflows = 2
+    nstate = length(initial) + nflows
 
     nsave = length(saveat)
     saved = zeros(nstate, nsave)
@@ -86,7 +95,11 @@ function DiffEqHydrologicalModel(
     callbacks = CallbackSet(forcing_callback, save_callback)
     params = DiffEqParams(parameters, savedresults)
 
-    problem = ODEProblem(f, initial, tspan, params)
+    f = prepare_ode_function(parameters, nstate, solverconfig.detect_sparsity)
+    u0 = vcat(initial, zeros(nflows))
+    problem = ODEProblem(f, u0, tspan, params)
+    abstol, reltol =
+        create_tolvectors(nstate, nflows, solverconfig.abstol, solverconfig.reltol)
 
     integrator = init(
         problem,
@@ -99,8 +112,8 @@ function DiffEqHydrologicalModel(
         callback = callbacks,
         tstops = tstops,
         isoutofdomain = isoutofdomain,
-        abstol = solverconfig.abstol,
-        reltol = solverconfig.reltol,
+        abstol = abstol,
+        reltol = reltol,
         maxiters = solverconfig.maxiters,
     )
     return DiffEqHydrologicalModel(integrator, saveat, saved)

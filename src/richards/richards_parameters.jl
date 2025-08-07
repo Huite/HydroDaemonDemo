@@ -46,14 +46,6 @@ function Base.show(io::IO, rp::AbstractRichards)
 end
 
 
-function create_tolvectors(nstate, nflows, abstol, reltol)
-    vector_abstol = fill(abstol, nstate + nflows)
-    vector_reltol = fill(reltol, nstate + nflows)
-    @views vector_abstol[end-nflows+1:end] .= 1e12
-    @views vector_reltol[end-nflows+1:end] .= 1e12
-    return vector_abstol, vector_reltol
-end
-
 struct RichardsParametersDAE{C,T,B} <: AbstractRichards
     constitutive::Vector{C}
     Δz::Float64
