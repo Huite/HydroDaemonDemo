@@ -45,6 +45,45 @@ function Base.show(io::IO, rp::AbstractRichards)
     )
 end
 
+
+function create_tolvectors(nstate, nflows, abstol, reltol)
+    vector_abstol = fill(abstol, nstate + nflows)
+    vector_reltol = fill(reltol, nstate + nflows)
+    @views vector_abstol[end-nflows:end] .= 1e12
+    @views vector_reltol[end-nflows:end] .= 1e12
+    return vector_abstol, vector_reltol
+end
+
+function prepare_ode_function(
+    p::RichardsParameters,
+    initial,
+    detect_sparsity,
+    abstol,
+    reltol,
+)
+    nstate = length(initial)
+    nflows = 2
+    # Make room for qbottom, qtop
+    if detect_sparsity
+        J = jacobian_sparsity(
+            (du, u) -> waterbalance!(du, u, p),
+            zeros(nstate + nflows),
+            zeros(nstate + nflows),
+            TracerSparsityDetector(),
+        )
+    else
+        J = Tridiagonal(
+            zeros(nstate + nflows - 1),
+            zeros(nstate + nflows),
+            zeros(nstate + nflows - 1),
+        )
+    end
+
+    f = ODEFunction(waterbalance!; jac_prototype = J)
+    vabstol, vreltol = create_tolvectors(nstate, nflows, abstol, reltol)
+    return f, vcat(initial, zeros(nflows)), vabstol, vreltol
+end
+
 struct RichardsParametersDAE{C,T,B} <: AbstractRichards
     constitutive::Vector{C}
     Δz::Float64
@@ -79,21 +118,19 @@ function RichardsParametersDAE(p::RichardsParameters)
     )
 end
 
-function reset!(p::RichardsParametersDAE, u0, initial)
-    @views u0[1:p.n] .= initial
-    return
-end
-
-function prepare_ode_function(p::RichardsParametersDAE, nstate, detect_sparsity)
+function prepare_ode_function(p::RichardsParametersDAE, initial, detect_sparsity)
+    nstate = length(initial)
+    nflows = 2
     n = Int(nstate / 2)
     if detect_sparsity
         J = jacobian_sparsity(
             (du, u) -> waterbalance_dae!(du, u, p),
-            zeros(nstate),
-            zeros(nstate),
+            zeros(nstate + nflows),
+            zeros(nstate + nflows),
             TracerSparsityDetector(),
         )
     else
+        # TODO: sparsity pattern for qtop, qbot!
         # Construct sparsity pattern prototype
         i = Int[]
         j = Int[]
@@ -108,9 +145,11 @@ function prepare_ode_function(p::RichardsParametersDAE, nstate, detect_sparsity)
         # lower-left block (–C)
         append!(i, n+1:2n)
         append!(j, 1:n)
-        J = sparse(i, j, ones(length(i)), nstate, nstate)
+        J = sparse(i, j, ones(length(i)), nstate + 2, nstate + 2)
     end
-    M = Diagonal([ones(n); zeros(n)])
+    M = Diagonal([ones(n); zeros(n); ones(nflows)])
     f = ODEFunction(waterbalance!; mass_matrix = M, jac_prototype = J)
-    return f
+    nflows = 2
+    vabstol, vreltol = create_tolvectors(nstate, nflows, abstol, reltol)
+    return f, vcat(initial, zeros(nflows)), vabstol, vreltol
 end

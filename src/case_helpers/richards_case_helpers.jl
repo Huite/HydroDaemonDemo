@@ -78,6 +78,11 @@ function storage(ψ, parameters::RichardsParameters)
     return parameters.Δz * (θ + S_elastic)
 end
 
+function waterbalance_error(model::DiffEqHydrologicalModel)
+    flows = model.saved[]
+
+end
+
 struct BenchMarkResult{M}
     model::M
     trial::BenchmarkTools.Trial
@@ -86,11 +91,7 @@ end
 
 function benchmark!(model, case::RichardsCase)
     trial = @benchmark HydroDaemonDemo.reset_and_run!($model, $(case.ψ0))
-    return BenchMarkResult(
-        model,
-        trial,
-        zeros(1),  # placeholder
-    )
+    return BenchMarkResult(model, trial, zeros(2))
 end
 
 function Base.show(io::IO, result::BenchMarkResult)

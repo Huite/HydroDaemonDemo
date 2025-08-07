@@ -18,11 +18,11 @@ end
 
 # Precipitation
 
-function topflux(ψ, parameters::AbstractRichards)
+function forcingflux(ψ, parameters::AbstractRichards)
     return parameters.currentforcing[1]
 end
 
-function topboundary_jacobian!(ψ, parameters::AbstractRichards)
+function forcing_jacobian!(ψ, parameters::AbstractRichards)
     return 0.0
 end
 
@@ -99,10 +99,11 @@ function waterbalance!(∇q, ψ, parameters::AbstractRichards)
     end
 
     # Boundary conditions
-    ∇q[1] += bottomflux(ψ, parameters, bottomboundary)
-    ∇q[end] += topflux(ψ, parameters, topboundary)
-    ∇q[end] += topflux(ψ, parameters)
-    return
+    qbottom = bottomflux(ψ, parameters, bottomboundary)
+    qtop = topflux(ψ, parameters, topboundary) + forcingflux(ψ, parameters)
+    ∇q[1] += qbottom
+    ∇q[end] += qtop
+    return qbottom, qtop
 end
 
 function explicit_timestep!(state::RichardsState, parameters::RichardsParameters, Δt)
@@ -123,7 +124,7 @@ function residual!(rhs, state::RichardsState, parameters::RichardsParameters, Δ
     return
 end
 
-function dwaterbalance!(J, ψ, parameters::RichardsParameters)
+function dwaterbalance!(J, ψ, parameters)
     (; constitutive, Δz, bottomboundary, topboundary, n) = parameters
 
     dFᵢdψᵢ = J.d  # derivatives of F₁, ... Fₙ with respect to ψ₁, ... ψₙ
@@ -153,7 +154,7 @@ function dwaterbalance!(J, ψ, parameters::RichardsParameters)
 
     J.d[1] += bottomboundary_jacobian!(ψ, parameters, bottomboundary)
     J.d[end] += topboundary_jacobian!(ψ, parameters, topboundary)
-    J.d[end] += topboundary_jacobian!(ψ, parameters)
+    J.d[end] += forcing_jacobian!(ψ, parameters)
     return
 end
 
@@ -179,9 +180,11 @@ end
 # Wrapped for DifferentialEquations
 # This is the "ψ-based" Richards equation.
 
-function waterbalance!(dψ, ψ, p::DiffEqParams{<:RichardsParameters}, t)
+function waterbalance!(u, du, p::DiffEqParams{<:RichardsParameters}, t)
+    ψ = u[1:end-2]
+    dψ = du[1:end-2]
     parameters = p.parameters
-    waterbalance!(dψ, ψ, parameters)
+    qbottom, qtop = waterbalance!(dψ, ψ, parameters)
     Δz = parameters.Δz
     for i = 1:parameters.n
         C = specific_moisture_capacity(ψ[i], parameters.constitutive[i])
@@ -189,13 +192,8 @@ function waterbalance!(dψ, ψ, p::DiffEqParams{<:RichardsParameters}, t)
         Ss = parameters.constitutive[i].Ss
         dψ[i] *= 1.0 / (Δz * (C + Sa * Ss))
     end
-    return
-end
-
-function dwaterbalance!(J, ψ, p::DiffEqParams{<:RichardsParameters}, t)
-    dwaterbalance!(J, ψ, p.parameters)
-    # TODO: this is not the appropriate jacobian?
-    # Since it's missing 1.0 / (Δz * C)!
+    du[end-1] = qbottom
+    du[end] = qtop
     return
 end
 
@@ -207,10 +205,10 @@ function waterbalance_dae!(du, u, parameters::RichardsParametersDAE)
     n = parameters.n
     dψ = @view du[1:n]  # Acts as ∇q first
     ψ = @view u[1:n]
-    dθ = @view du[n+1:end]
-    θ = @view u[n+1:end]
+    dθ = @view du[n+1:end-2]
+    θ = @view u[n+1:end-2]
 
-    waterbalance!(dψ, ψ, parameters)
+    qbottom, qtop = waterbalance!(dψ, ψ, parameters)
     Δz = parameters.Δz
     for i = 1:parameters.n
         # Head-based Richards equation
@@ -221,6 +219,8 @@ function waterbalance_dae!(du, u, parameters::RichardsParametersDAE)
         # Algebraic constraint
         dθ[i] = θ[i] - moisture_content(ψ[i], parameters.constitutive[i])
     end
+    du[end-1] = qbottom
+    du[end] = qtop
     return
 end
 

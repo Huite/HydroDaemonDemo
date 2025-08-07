@@ -2,6 +2,7 @@ struct Fuse070State <: State
     S::Vector{Float64}
     dS::Vector{Float64}
     Sold::Vector{Float64}
+    flows::Vector{Float64}
 end
 
 function primary(state::Fuse070State)
@@ -9,7 +10,7 @@ function primary(state::Fuse070State)
 end
 
 function prepare_state(_::Fuse070Parameters, initial)
-    return Fuse070State(copy(initial), zero(initial), copy(initial))
+    return Fuse070State(copy(initial), zero(initial), copy(initial), zeros(2))
 end
 
 function apply_update!(state::Fuse070State, linearsolver, a)

@@ -4,6 +4,7 @@ struct ExplicitHydrologicalModel{P<:Parameters,S<:State,T<:TimeStepper} <: Hydro
     tspan::Tuple{Float64,Float64}
     saveat::Vector{Float64}  # frequency
     saved::Matrix{Float64}  # output
+    savedflows::Matrix{Float64}  # output
     timestepper::T
 end
 
@@ -19,8 +20,17 @@ function ExplicitHydrologicalModel(
     nstate = length(primary(state))
     nsave = length(saveat) + 1
     saved = zeros(nstate, nsave)
+    savedflows = zeros(2, nsave)
 
-    return ExplicitHydrologicalModel(parameters, state, tspan, saveat, saved, timestepper)
+    return ExplicitHydrologicalModel(
+        parameters,
+        state,
+        tspan,
+        saveat,
+        saved,
+        savedflows,
+        timestepper,
+    )
 end
 
 """
@@ -30,6 +40,7 @@ function timestep!(model::ExplicitHydrologicalModel, Δt)
     state = model.state
     parameters = model.parameters
     Δt = compute_timestep_size(model.timestepper, model.state, model.parameters, Δt)
+    # TODO: save necessary flows in explicit timestep!
     explicit_timestep!(state, parameters, Δt)
     return Δt
 end

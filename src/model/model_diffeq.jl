@@ -2,17 +2,17 @@
 Wrapper around the (mutable) state and the (immutable) parameters,
 as the DifferentialEquations uses a single parameters argument.
 """
-struct SavedResults
+mutable struct SavedResults
     saved::Matrix{Float64}
-    save_idx::Base.RefValue{Int}
+    save_idx::Int
 end
 
 function Base.show(io::IO, sr::SavedResults)
     n_vars, n_timesteps = size(sr.saved)
-    nsave = sr.save_idx[] - 1
+    nsave = sr.save_idx - 1
     print(
         io,
-        "SavedResults($(n_vars) variables x $(n_timesteps) timesteps, saved: $(nsave)/$(n_timesteps))",
+        "SavedResults($(n_vars) variables x $(n_timesteps) time steps, saved: $(nsave)/$(n_timesteps))",
     )
 end
 
@@ -40,8 +40,7 @@ end
     alg::Any
     abstol::Float64 = 1e-6
     reltol::Float64 = 1e-6
-    maxiters::Int = 10000
-    autodiff::Bool = true
+    maxiters::Int = 100_000
     detect_sparsity::Bool = false
     controller::Any = nothing
 end
@@ -54,9 +53,9 @@ end
 
 function save_state!(integrator)
     (; u, p) = integrator
-    idx = p.results.save_idx[]
+    idx = p.results.save_idx
     p.results.saved[:, idx] .= u
-    p.results.save_idx[] += 1
+    p.results.save_idx += 1
     return
 end
 
@@ -72,10 +71,18 @@ function DiffEqHydrologicalModel(
     saveat = create_saveat(saveat, forcing, tspan)
     pushfirst!(saveat, tstart)
 
+    f, initial, abstol, reltol = prepare_ode_function(
+        parameters,
+        initial,
+        solverconfig.detect_sparsity,
+        solverconfig.abstol,
+        solverconfig.reltol,
+    )
+
     nstate = length(initial)
     nsave = length(saveat)
     saved = zeros(nstate, nsave)
-    savedresults = SavedResults(saved, Ref(1))
+    savedresults = SavedResults(saved, 1)
     save_callback = PresetTimeCallback(saveat, save_state!; save_positions = (false, false))
 
     tstops = unique(sort(vcat(forcing.t, saveat)))
@@ -85,7 +92,6 @@ function DiffEqHydrologicalModel(
     callbacks = CallbackSet(forcing_callback, save_callback)
     params = DiffEqParams(parameters, savedresults)
 
-    f = prepare_ode_function(parameters, nstate, solverconfig.detect_sparsity)
     problem = ODEProblem(f, initial, tspan, params)
 
     integrator = init(
@@ -99,8 +105,8 @@ function DiffEqHydrologicalModel(
         callback = callbacks,
         tstops = tstops,
         isoutofdomain = isoutofdomain,
-        abstol = solverconfig.abstol,
-        reltol = solverconfig.reltol,
+        abstol = abstol,
+        reltol = reltol,
         maxiters = solverconfig.maxiters,
     )
     return DiffEqHydrologicalModel(integrator, saveat, saved)
@@ -114,7 +120,7 @@ end
 function reset_and_run!(model::DiffEqHydrologicalModel, initial)
     # Wipe results
     model.integrator.p.results.saved .= 0.0
-    model.integrator.p.results.save_idx[] = 1
+    model.integrator.p.results.save_idx = 1
     # Set initial state
     u0 = model.integrator.sol.prob.u0
     # Dispatch on parameters type for DAE formulation
@@ -157,8 +163,10 @@ function Base.show(io::IO, model::DiffEqHydrologicalModel)
         println(io, "    Linear solve: ", linsolve_name)
     end
 
-    name, kwargs = get_kwargs(model.integrator.opts.controller)
-    println(io, "    Time step controller: ", name, "(", join(kwargs, ", "), ")")
+    if hasproperty(model.integrator.opts, :controller)
+        name, kwargs = get_kwargs(model.integrator.opts.controller)
+        println(io, "    Time step controller: ", name, "(", join(kwargs, ", "), ")")
+    end
 
     println(io, "  Save points: ", length(model.saveat), " points")
     if !isempty(model.saveat)
@@ -174,7 +182,7 @@ end
     n_decrease::Int = 15
     decrease::Float64 = 0.9
     failure::Float64 = 0.5
-    dtmin::Float64 = 1e-9
+    dtmin::Float64 = 1e-6
 end
 
 # Required interface method for step size control

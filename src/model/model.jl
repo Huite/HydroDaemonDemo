@@ -2,7 +2,7 @@
 Create saveat vector of times.
 
     If nothing is provided for saveat, use the forcing times.
-    Constrain saveat times such that `tsart < tsave <= tend`.
+    Constrain saveat times such that `tstart < tsave <= tend`.
 """
 function create_saveat(saveat, forcing, tspan)::Vector{Float64}
     if isnothing(saveat)
@@ -56,6 +56,7 @@ function run!(model::HydrologicalModel)
         # Store output
         if isapprox(t, tsave)
             model.saved[:, save_index+1] .= primary(model.state)
+            model.savedflows[:, save_index+1] .= model.state.flows
             save_index += 1
         end
     end
@@ -64,6 +65,7 @@ end
 function reset_and_run!(model::HydrologicalModel, initial)
     # Wipe results
     model.saved .= 0.0
+    model.state.flows .= 0.0
     # Set initial state
     primary_state = primary(model.state)
     primary_state .= initial

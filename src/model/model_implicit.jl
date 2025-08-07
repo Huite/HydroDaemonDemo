@@ -11,6 +11,7 @@ struct ImplicitHydrologicalModel{
     tspan::Tuple{Float64,Float64}
     saveat::Vector{Float64}  # frequency
     saved::Matrix{Float64}  # output
+    savedflows::Matrix{Float64}  # output
     timestepper::T
 end
 
@@ -43,6 +44,7 @@ function ImplicitHydrologicalModel(
     nstate = length(primary(state))
     nsave = length(saveat) + 1
     saved = zeros(nstate, nsave)
+    savedflows = zeros(2, nsave)
     return ImplicitHydrologicalModel(
         parameters,
         state,
@@ -50,6 +52,7 @@ function ImplicitHydrologicalModel(
         tspan,
         saveat,
         saved,
+        savedflows,
         timestepper,
     )
 end
@@ -59,7 +62,6 @@ First order implicit (Euler Backward) time integration, with optional:
 
 * Adaptive time stepping
 * Line searches or backtracking
-* Pseudo-transient continuation (PTC) for steady-state
 """
 function timestep!(model::ImplicitHydrologicalModel, Δt)
     copy_state!(model.state, model.parameters)
@@ -70,6 +72,9 @@ function timestep!(model::ImplicitHydrologicalModel, Δt)
         rewind!(model.state)
         converged, n_newton_iter = solve!(model.solver, model.state, model.parameters, Δt)
     end
+
+    # Compute the flows based on the current solution
+    compute_savedflows!(model.state, model.parameters, Δt)
 
     # After convergence, compute the recommended next step size based on solver performance?
     #    Δt_next = compute_next_time_step(model.timestepper, Δt, converged, n_newton_iter)

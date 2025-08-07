@@ -21,7 +21,12 @@ function primary(state::State)
     error("primary not implemented for $(typeof(state))")
 end
 
-function prepare_ode_function(p::Parameters, nstate, detect_sparsity)
+function compute_savedflows!(state::State, parameters::Parameters, Δt)
+    return
+end
+
+function prepare_ode_function(p::Parameters, initial, detect_sparsity, abstol, reltol)
+    nstate = length(initial)
     if detect_sparsity
         J = jacobian_sparsity(
             (du, u) -> waterbalance!(du, u, p),
@@ -34,11 +39,12 @@ function prepare_ode_function(p::Parameters, nstate, detect_sparsity)
     end
 
     f = ODEFunction(waterbalance!; jac_prototype = J)
-    return f
+    return f, initial, fill(abstol, nstate), fill(reltol, nstate)
 end
 
 function reset!(p::Parameters, u0, initial)
-    u0 .= initial
+    u0 .= 0.0
+    @views u0[1:length(initial)] .= initial
     return
 end
 

@@ -3,11 +3,22 @@ struct RichardsState <: State
     ψ_old::Vector{Float64}
     θ_old::Vector{Float64}
     ∇q::Vector{Float64}
+    flows::Vector{Float64}
 end
 
 """Return the primary state."""
 function primary(state::RichardsState)
     return state.ψ
+end
+
+function compute_savedflows!(state::RichardsState, parameters::RichardsParameters, Δt)
+    state.flows[1] += Δt * bottomflux(state.ψ, parameters, parameters.bottomboundary)
+    state.flows[2] +=
+        Δt * (
+            topflux(state.ψ, parameters, parameters.topboundary) +
+            forcingflux(state.ψ, parameters)
+        )
+    return
 end
 
 function prepare_state(p::RichardsParameters, initial)
@@ -16,6 +27,7 @@ function prepare_state(p::RichardsParameters, initial)
         copy(initial),  # ψ_old,
         zero(initial),
         zero(initial),
+        zeros(2),  # qbottom, qtop
     )
 end
 
