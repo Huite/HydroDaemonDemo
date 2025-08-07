@@ -18,7 +18,6 @@ import OrdinaryDiffEqCore: AbstractController
 import OrdinaryDiffEqCore:
     stepsize_controller!,
     accept_step_controller,
-    reject_step_controller,
     step_accept_controller!,
     step_reject_controller!
 
