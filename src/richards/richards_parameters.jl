@@ -81,7 +81,7 @@ function RichardsParametersDAE(p::RichardsParameters)
 end
 
 function prepare_ode_function(p::RichardsParametersDAE, nstate, detect_sparsity)
-    n = Int(nstate / 2)
+    n = Int((nstate - 2) / 2)
     if detect_sparsity
         J = jacobian_sparsity(
             (du, u) -> waterbalance_dae!(du, u, p),
@@ -90,6 +90,7 @@ function prepare_ode_function(p::RichardsParametersDAE, nstate, detect_sparsity)
             TracerSparsityDetector(),
         )
     else
+        # TODO: Check flow entries
         # Construct sparsity pattern prototype
         i = Int[]
         j = Int[]
@@ -104,9 +105,12 @@ function prepare_ode_function(p::RichardsParametersDAE, nstate, detect_sparsity)
         # lower-left block (–C)
         append!(i, n+1:2n)
         append!(j, 1:n)
+        # qtop, qbot
+        append!(i, 2n:nstate)
+        append!(j, 2n:nstate)
         J = sparse(i, j, ones(length(i)), nstate, nstate)
     end
-    M = Diagonal([ones(n); zeros(n)])
+    M = Diagonal([ones(n); zeros(n); ones(2)])
     f = ODEFunction(waterbalance!; mass_matrix = M, jac_prototype = J)
     return f
 end

@@ -98,8 +98,9 @@ function DiffEqHydrologicalModel(
     f = prepare_ode_function(parameters, nstate, solverconfig.detect_sparsity)
     u0 = vcat(initial, zeros(nflows))
     problem = ODEProblem(f, u0, tspan, params)
-    abstol, reltol =
-        create_tolvectors(nstate, nflows, solverconfig.abstol, solverconfig.reltol)
+    # TODO: DAEProblem does not support abstol reltol vectors at the moment.
+    #abstol, reltol =
+    #    create_tolvectors(nstate, nflows, solverconfig.abstol, solverconfig.reltol)
 
     integrator = init(
         problem,
@@ -112,8 +113,8 @@ function DiffEqHydrologicalModel(
         callback = callbacks,
         tstops = tstops,
         isoutofdomain = isoutofdomain,
-        abstol = abstol,
-        reltol = reltol,
+        abstol = solverconfig.abstol,
+        reltol = solverconfig.reltol,
         maxiters = solverconfig.maxiters,
     )
     return DiffEqHydrologicalModel(integrator, saveat, saved)

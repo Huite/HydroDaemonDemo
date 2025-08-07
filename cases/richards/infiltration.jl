@@ -2,6 +2,7 @@ import HydroDaemonDemo as HDD
 using DifferentialEquations
 using Sundials
 
+using Plots
 using CSV
 using DataFrames
 using Dates
@@ -43,57 +44,100 @@ saveat = collect(0.0:1.0:infiltration.tspan[2])
 
 implicit_solver = HDD.NewtonSolver(
     HDD.LinearSolverThomas(infiltration.parameters.n),
-    relax = HDD.ScalarRelaxation(0.5),
+    relax = HDD.ScalarRelaxation(0.0),
+    abstol = 1e-6,
+    reltol = 1e-6,
 )
 implicit_result = HDD.benchmark!(
     HDD.implicit_model(infiltration, implicit_solver, HDD.AdaptiveTimeStepper(1.0), saveat),
     infiltration,
-)
+)  # 143 ms
 
+wb = implicit_result.waterbalance
+ΔS = diff(wb.storage)
+qb = diff(wb.qbot)
+qt = diff(wb.qtop)
+error = qt + qb - ΔS
 
-implicit_result2 = HDD.benchmark!(
-    HDD.implicit_model(infiltration, implicit_solver, HDD.FixedTimeStepper(1.0), saveat),
-    infiltration,
-)
-
-model = HDD.implicit_model(infiltration, implicit_solver, HDD.FixedTimeStepper(0.1), saveat)
-HDD.run!(model)
-@btime HDD.reset_and_run!(model, infiltration.ψ0)
+scatter(qt, error)
 
 qndf_result = HDD.benchmark!(
     HDD.diffeq_model(
         infiltration,
-        HDD.SolverConfig(alg = QNDF(nlsolve = NLNewton(relax = 0.5)), maxiters = 100_000),
+        HDD.SolverConfig(alg = QNDF(), maxiters = 100_000),
         saveat,
     ),
     infiltration,
-)
+)  # 813 ms, dae: 1.16 s
 
-qndf_dae_result = HDD.benchmark!(
+wb = qndf_result.waterbalance
+ΔS = diff(wb.storage)
+qb = diff(wb.qbot)
+qt = diff(wb.qtop)
+error = qt + qb - ΔS
+
+scatter(qt, error)
+
+
+qndf_result_dae = HDD.benchmark!(
     HDD.diffeq_model_dae(
         infiltration,
-        HDD.SolverConfig(alg = QNDF(nlsolve = NLNewton(relax = 0.5)), maxiters = 100_000),
+        HDD.SolverConfig(alg = QNDF(), maxiters = 100_000),
         saveat,
     ),
     infiltration,
-)
+)  # 813 ms, dae: 1.16 s
+
+
+wb = qndf_result_dae.waterbalance
+ΔS = diff(wb.storage)
+qb = diff(wb.qbot)
+qt = diff(wb.qtop)
+error = qt + qb - ΔS
+
+scatter!(qt, error)
+
+model = qndf_result.model
+
+n = model.integrator.p.parameters.n
+S = [HDD.storage(ψ, model.integrator.p.parameters) for ψ in eachcol(model.saved[1:n, :])]
+total_storage = sum.(S)
+qbot_cumulative = model.saved[end-1, :]
+qtop_cumulative = model.saved[end, :]
+
+qb = qbot_cumulative[end]
+qt = qtop_cumulative[end]
+dS = total_storage[end] - total_storage[1]
+qb + qt - dS
+
+
+qndf_result_dae = HDD.benchmark!(
+    HDD.diffeq_model_dae(
+        infiltration,
+        HDD.SolverConfig(alg = QNDF(), maxiters = 100_000),
+        saveat,
+    ),
+    infiltration,
+)  # 813 ms, dae: 1.16 s
+
+qndf_result = HDD.benchmark!(
+    HDD.diffeq_model_dae(
+        infiltration,
+        HDD.SolverConfig(alg = QNDF(autodiff = false), maxiters = 100_000),
+        saveat,
+    ),
+    infiltration,
+)  #  865 ms, dae: 1.17 s
 
 qbdf_result = HDD.benchmark!(
     HDD.diffeq_model(
         infiltration,
-        HDD.SolverConfig(alg = QBDF(nlsolve = NLNewton(relax = 0.5)), maxiters = 100_000),
+        HDD.SolverConfig(alg = QBDF(), maxiters = 100_000, reltol = 1e-3),
         saveat,
     ),
     infiltration,
-)
-qbdf_dae_result = HDD.benchmark!(
-    HDD.diffeq_model_dae(
-        infiltration,
-        HDD.SolverConfig(alg = QBDF(nlsolve = NLNewton(relax = 0.5)), maxiters = 100_000),
-        saveat,
-    ),
-    infiltration,
-)
+)  # 853 ms, dae: 1.15 s
+# reltol 1e-3, 330 ms, dae: 700 ms
 
 cvode_result = HDD.benchmark!(
     HDD.diffeq_model(
@@ -102,104 +146,126 @@ cvode_result = HDD.benchmark!(
         saveat,
     ),
     infiltration,
-)
+)  # 837 ms
 
-lsoda = HDD.benchmark!(
-    HDD.diffeq_model(infiltration, HDD.SolverConfig(alg = Rosenbrock23()), saveat),
+euler_result = HDD.benchmark!(
+    HDD.diffeq_model(
+        infiltration,
+        HDD.SolverConfig(alg = ImplicitEuler(), maxiters = 200_000),
+        saveat,
+    ),
     infiltration,
+)  # Excess of maxiter 500 000
+
+euler_custom_result = HDD.benchmark!(
+    HDD.diffeq_model(
+        infiltration,
+        HDD.SolverConfig(
+            alg = ImplicitEuler(),
+            maxiters = 100_000,
+            controller = HDD.CustomController(dtmin = 1e-9),
+        ),
+        saveat,
+    ),
+    infiltration,
+)  # 2.5 s
+
+euler_dae_result = HDD.benchmark!(
+    HDD.diffeq_model_dae(
+        infiltration,
+        HDD.SolverConfig(
+            alg = ImplicitEuler(),
+            maxiters = 100_000,
+            controller = HDD.CustomController(dtmin = 1e-9),
+            detect_sparsity = true,
+        ),
+        saveat,
+    ),
+    infiltration,
+)  # 412 ms
+
+storage = [
+    HDD.storage(ψ, infiltration.parameters) for
+    ψ in eachcol(euler_dae_result.model.saved[1:15, :])
+]
+total_storage = sum.(storage)
+plot!(date_range, total_storage[1554:1554+365], label = "ImplicitEulerDAE(custom)")
+
+
+euler_dae_result = HDD.benchmark!(
+    HDD.diffeq_model_dae(
+        infiltration,
+        HDD.SolverConfig(
+            alg = ImplicitEuler(autodiff = false),
+            maxiters = 100_000,
+            controller = HDD.CustomController(dtmin = 1e-9),
+        ),
+        saveat,
+    ),
+    infiltration,
+)  # 461 ms
+
+fbdf_result = HDD.benchmark!(
+    HDD.diffeq_model_dae(
+        infiltration,
+        HDD.SolverConfig(alg = FBDF(), maxiters = 100_000),
+        saveat,
+    ),
+    infiltration,
+)  # 1.1 s, dae: 1.5 s
+
+
+start_date = Date("2004-01-01")
+end_date = Date("2004-12-31")
+date_range = collect(start_date:Day(1):end_date)
+#plot(date_range, total_storage[1554:1554+365], xlabel="Date", ylabel="Storage (m)", label="Implicit")
+date_range = df.Column1
+
+storage =
+    [HDD.storage(ψ, infiltration.parameters) for ψ in eachcol(implicit_result.model.saved)]
+total_storage = sum.(storage)
+plot(
+    date_range,
+    total_storage[1:end-1],
+    xlabel = "Date",
+    ylabel = "Storage (m)",
+    label = "Implicit",
 )
 
 
-using OrdinaryDiffEqCore: AbstractController
-import OrdinaryDiffEqCore: stepsize_controller!
+storage =
+    [HDD.storage(ψ, infiltration.parameters) for ψ in eachcol(cvode_result.model.saved)]
+total_storage = sum.(storage)
+plot!(
+    date_range,
+    total_storage[1:end-1],
+    xlabel = "Date",
+    ylabel = "Storage (m)",
+    label = "CVODE_BDF",
+)
 
-# Custom controller struct
-struct NewtonAdaptiveController
-    n_increase::Int
-    increase::Float64
-    n_decrease::Int
-    decrease::Float64
-    failure::Float64
-    dtmin::Float64
+storage =
+    [HDD.storage(ψ, infiltration.parameters) for ψ in eachcol(qndf_result.model.saved)]
+total_storage = sum.(storage)
+plot!(date_range, total_storage[1:end-1], label = "QNDF")
 
-    function NewtonAdaptiveController(;
-        n_increase = 5,
-        increase = 1.25,
-        n_decrease = 15,
-        decrease = 0.9,
-        failure = 0.5,
-        dtmin = 1e-6,
-    )
-        new(n_increase, increase, n_decrease, decrease, failure, dtmin)
-    end
-end
+storage = [
+    HDD.storage(ψ, infiltration.parameters) for
+    ψ in eachcol(qndf_result_dae.model.saved[1:15, :])
+]
+total_storage = sum.(storage)
+plot!(date_range, total_storage[1:end-1], label = "QNDF-DAE")
 
-# Required interface method for step size control
-function stepsize_controller!(integrator, controller::NewtonAdaptiveController, alg)
-    # Get the current algorithm's statistics
-    # For implicit methods, we need to access Newton iteration info
+storage = [
+    HDD.storage(ψ, infiltration.parameters) for
+    ψ in eachcol(euler_custom_result.model.saved)
+]
+total_storage = sum.(storage)
+plot!(date_range, total_storage[1:end-1], label = "ImplicitEuler(custom)")
 
-    # Check if the step was successful
-    if integrator.sol.retcode == :Success || integrator.accept_step
-        # Step succeeded - check Newton iterations if available
-        n_newton_iter = get_newton_iterations(integrator, alg)
-
-        if n_newton_iter < controller.n_increase
-            # Few iterations - increase step size
-            new_dt = integrator.dt * controller.increase
-        elseif n_newton_iter > controller.n_decrease
-            # Many iterations - decrease step size
-            new_dt = integrator.dt * controller.decrease
-        else
-            # Acceptable number of iterations - keep step size
-            new_dt = integrator.dt
-        end
-    else
-        # Step failed - reduce step size significantly
-        new_dt = integrator.dt * controller.failure
-        integrator.force_stepfail = true
-    end
-
-    # Enforce minimum step size
-    if new_dt < controller.dtmin
-        error("Time step below dtmin: $(new_dt) < $(controller.dtmin)")
-    end
-
-    # Set the new step size
-    integrator.dt = new_dt
-    integrator.dtcache = new_dt
-
-    return nothing
-end
-
-# Helper function to extract Newton iteration count
-function get_newton_iterations(integrator, alg)
-    # This depends on the specific algorithm being used
-    # For Rosenbrock methods, check if stats are available
-    if hasfield(typeof(integrator), :stats) &&
-       hasfield(typeof(integrator.stats), :nnonliniter)
-        return integrator.stats.nnonliniter
-    elseif hasfield(typeof(integrator.cache), :nl_iters)
-        return integrator.cache.nl_iters
-    elseif hasfield(typeof(integrator.cache), :newton_iters)
-        return integrator.cache.newton_iters
-    else
-        # Fallback: use a reasonable default or try to estimate
-        # from other available metrics
-        if hasfield(typeof(integrator), :stats) && hasfield(typeof(integrator.stats), :nf)
-            # Rough estimate: each Newton iteration typically requires 1-2 function evaluations
-            return max(1, integrator.stats.nf ÷ 2)
-        else
-            return 5  # Default assumption
-        end
-    end
-end
-
-
-custom_controller = NewtonAdaptiveController()
-alg = ImplicitEuler(nlsolve = NLNewton(relax = 0.5))
-solverconfig =
-    HDD.SolverConfig(alg = alg, controller = custom_controller, maxiters = 100_000)
-model = HDD.diffeq_model(infiltration, solverconfig, saveat)
-
-HDD.run!(model)
+storage = [
+    HDD.storage(ψ, infiltration.parameters) for
+    ψ in eachcol(euler_dae_result.model.saved[1:15, :])
+]
+total_storage = sum.(storage)
+plot!(date_range, total_storage[1:end-1], label = "ImplicitEuler-DAE(custom)")
