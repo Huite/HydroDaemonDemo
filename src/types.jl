@@ -25,22 +25,6 @@ function compute_savedflows!(state::State, parameters::Parameters, Δt)
     return
 end
 
-function prepare_ode_function(p::Parameters, nstate, detect_sparsity)
-    if detect_sparsity
-        J = jacobian_sparsity(
-            (du, u) -> waterbalance!(du, u, p),
-            zeros(nstate),
-            zeros(nstate),
-            TracerSparsityDetector(),
-        )
-    else
-        J = Tridiagonal(zeros(nstate - 1), zeros(nstate), zeros(nstate - 1))
-    end
-
-    f = ODEFunction(waterbalance!; jac_prototype = J)
-    return f
-end
-
 function reset!(p::Parameters, u0, initial)
     u0 .= 0.0
     @views u0[1:length(initial)] .= initial

@@ -67,6 +67,37 @@ function create_tolvectors(nstate, nflows, abstol, reltol)
     return vector_abstol, vector_reltol
 end
 
+function prepare_ode_function(p::Parameters, nstate, detect_sparsity)
+    if detect_sparsity
+        J = jacobian_sparsity(
+            (du, u) -> waterbalance!(du, u, p),
+            zeros(nstate),
+            zeros(nstate),
+            TracerSparsityDetector(),
+        )
+    else
+        J = Tridiagonal(zeros(nstate - 1), zeros(nstate), zeros(nstate - 1))
+    end
+
+    f = ODEFunction{true}(waterbalance!; jac_prototype = J)
+    return f
+end
+
+function prepare_problem(
+    parameters::Parameters,
+    savedresults,
+    nstate,
+    detect_sparsity,
+    initial,
+    tspan,
+)
+    f = prepare_ode_function(parameters, nstate, detect_sparsity)
+    u0 = zeros(nstate)
+    @views u0[1:length(initial)] .= initial
+    params = DiffEqParams(parameters, savedresults)
+    problem = ODEProblem(f, u0, tspan, params)
+    return problem
+end
 
 function DiffEqHydrologicalModel(
     parameters::Parameters,
@@ -93,12 +124,18 @@ function DiffEqHydrologicalModel(
         PresetTimeCallback(forcing.t, update_forcing!; save_positions = (false, false))
 
     callbacks = CallbackSet(forcing_callback, save_callback)
-    params = DiffEqParams(parameters, savedresults)
 
-    f = prepare_ode_function(parameters, nstate, solverconfig.detect_sparsity)
-    u0 = vcat(initial, zeros(nflows))
-    problem = ODEProblem(f, u0, tspan, params)
-    # TODO: DAEProblem does not support abstol reltol vectors at the moment.
+    problem = prepare_problem(
+        parameters,
+        savedresults,
+        nstate,
+        solverconfig.detect_sparsity, 
+        initial,
+        tspan,
+    )
+
+    # TODO: _dae_initialize! does not support abstol reltol vectors at the moment.
+    # https://github.com/SciML/OrdinaryDiffEq.jl/issues/2820
     #abstol, reltol =
     #    create_tolvectors(nstate, nflows, solverconfig.abstol, solverconfig.reltol)
 
