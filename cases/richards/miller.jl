@@ -1,8 +1,9 @@
-import HydroDaemonDemo as HDD
+import HzsydroDaemonDemo as HDD
 using DifferentialEquations
 using Sundials
 using DataFrames
 using CSV
+using Plots
 
 
 function create_millersand()
@@ -87,7 +88,7 @@ end
 function run(cases, solver_presets)
     results = []
     rows = []
-    for (soil, case) in cases
+    for (soil, case) in pairs(cases)
         for preset in solver_presets
             println("Benchmarking $(soil), $(HDD.name(preset))")
             result = HDD.benchmark!(case, preset)
@@ -116,13 +117,15 @@ solver_presets = (
         reltol = 1e-6,
         timestepper = HDD.AdaptiveTimeStepper(0.01),
     ),
+#    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler(), maxiters = 500_000)),
+#    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler(), maxiters = 500_000)),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(), maxiters = 200_000)),
     HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(), maxiters = 200_000)),
-    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = FBDF(), maxiters = 200_000)),
-    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = FBDF(), maxiters = 300_000)),  # 2e5 not enough
-    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QBDF(), maxiters = 200_000)),
-    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QBDF(), maxiters = 200_000)),
-    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = CVODE_BDF(jac_upper = 1, jac_lower = 1))),
+#    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = FBDF(), maxiters = 200_000)),
+#    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = FBDF(), maxiters = 500_000)),  # 2e5 not enough
+#    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QBDF(), maxiters = 200_000)),
+#    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QBDF(), maxiters = 200_000)),
+#    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = CVODE_BDF(jac_upper = 1, jac_lower = 1))),
 )
 cases = (
     sand = create_millersand(),
@@ -131,232 +134,28 @@ cases = (
 )
 
 df, results = run(cases, solver_presets)
-
-df = DataFrame(rows)
-
-result = HDD.benchmark!(cases[:sand], solver_presets[1])
+CSV.write("cases/richards/miller.csv", df)
 
 
-millersand = cases[:sand]
+function plotresult(cases, solver_presets, results)
+    plot()
+    for ((preset, (soil, case)), result) in zip(Iterators.product(solver_presets, pairs(cases)), results)
+        n = case.parameters.n
+        Δz = case.parameters.Δz
+        z = collect(Δz:Δz:n*Δz)
+        ψ = result.model.saved[1:n, end]
+        plot!(
+            z,
+            ψ,
+            permute=(:y, :x),
+            label="$(string(soil)), $(HDD.name(preset))",
+            ylabel="Pressure head (m)",
+            xlabel="Elevation (m)",
+        )
+    end
+    display(current())
+    return
+end
 
-implicit_result = HDD.benchmark!(
-    HDD.implicit_model(millersand, implicit_solver, HDD.AdaptiveTimeStepper(0.1), saveat),
-    millersand,
-) # relax 0.5 :370 ms, relax 0.0: 532 ms
-# relax 0.5, reltol 1e-3: 254 ms
-
-
-solution = "Implicit Newton"
-soil = "Sand"
-time = minimum(implicit_result.trial.time) / 1e9
-mass_bias = implicit_result.mass_bias
-mass_rmse = implicit_result.mass_rsme
-
-
-qndf_result = HDD.benchmark!(
-    HDD.diffeq_model(
-        millersand,
-        HDD.SolverConfig(alg = QNDF(), maxiters = 200_000, reltol = 1e-6),
-        saveat,
-    ),
-    millersand,
-)  # heads-based: 16.7 s; dae: 12.3 s
-
-qndf_result = HDD.benchmark!(
-    HDD.diffeq_model_dae(
-        millersand,
-        HDD.SolverConfig(alg = QNDF(), maxiters = 200_000, reltol = 1e-6),
-        saveat,
-    ),
-    millersand,
-)  # heads-based: 16.7 s; dae: 12.3 s
-# reltol 1e-3: 6 s
-
-qbdf_result = HDD.benchmark!(
-    HDD.diffeq_model_dae(
-        millersand,
-        HDD.SolverConfig(alg = QBDF(), maxiters = 200_000),
-        saveat,
-    ),
-    millersand,
-)  # 24 s, dae: 13.5 s
-
-
-fbdf_result = HDD.benchmark!(
-    HDD.diffeq_model(
-        millersand,
-        HDD.SolverConfig(alg = FBDF(), maxiters = 200_000),
-        saveat,
-    ),
-    millersand,
-)  # dae: 35.2 s
-
-
-cvode_result = HDD.benchmark!(
-    HDD.diffeq_model(
-        millersand,
-        HDD.SolverConfig(alg = CVODE_BDF(jac_upper = 1, jac_lower = 1)),
-        saveat,
-    ),
-    millersand,
-)  # really quite slow
-
-euler_result = HDD.benchmark!(
-    HDD.diffeq_model_dae(
-        millersand,
-        HDD.SolverConfig(alg = ImplicitEuler(), maxiters = 500_000, reltol = 1e-3),
-        saveat,
-    ),
-    millersand,
-)  # reltol 1e-3: 11.1 s 
-
-
-config = HDD.SolverConfig(
-    alg = ImplicitEuler(nlsolve = NLNewton(relax = 0.5)),
-    controller = HDD.CustomController(dtmin = 1e-6),
-    maxiters = 100_000,
-)
-model = HDD.diffeq_model(millersand, config, saveat)
-HDD.run!(model)
-
-
-
-
-cvode_result = HDD.benchmark!(
-    HDD.diffeq_model(
-        millersand,
-        HDD.SolverConfig(alg = CVODE_BDF(jac_upper = 1, jac_lower = 1)),
-        saveat,
-    ),
-    millersand,
-)
-
-
-plot(implicit_result.model.saved[:, end])
-plot!(qndf_result.model.saved[:, end])
-plot!(cvode_result.model.saved[:, end])
-
-
-
-
-
-
-qndf_result = HDD.benchmark!(
-    HDD.diffeq_model(
-        millersand,
-        HDD.SolverConfig(alg = QNDF(nlsolve = NLNewton(relax = 0.5)), maxiters = 100_000),
-        saveat,
-    ),
-    millersand,
-)
-
-
-qndf_result = HDD.benchmark!(
-    HDD.diffeq_model(
-        millersand,
-        HDD.SolverConfig(alg = QNDF(nlsolve = NLNewton(relax = 0.5)), maxiters = 100_000),
-        saveat,
-    ),
-    millersand,
-)
-
-cvode_result = HDD.benchmark!(
-    HDD.diffeq_model(
-        millersand,
-        HDD.SolverConfig(alg = CVODE_BDF(jac_upper = 1, jac_lower = 1)),
-        saveat,
-    ),
-    millersand,
-)
-
-using DASKR
-
-daskr_solver = daskr(linear_solver = :Banded, jac_upper = 1, jac_lower = 1)
-cvode_result = HDD.benchmark!(
-    HDD.diffeq_model(millersand, HDD.SolverConfig(alg = daskr_solver), saveat),
-    millersand,
-)
-
-
-
-implicit_solver = HDD.NewtonSolver(
-    HDD.LinearSolverThomas(millerclayloam.parameters.n),
-    relax = HDD.ScalarRelaxation(0.0),
-)
-implicit_result = HDD.benchmark!(
-    HDD.implicit_model(
-        millerclayloam,
-        implicit_solver,
-        HDD.AdaptiveTimeStepper(0.1),
-        saveat,
-    ),
-    millerclayloam,
-)  # relax 0.5: 124 ms, relax 0.0: 50 ms
-
-cvode_result = HDD.benchmark!(
-    HDD.diffeq_model(
-        millerclayloam,
-        HDD.SolverConfig(alg = CVODE_BDF(jac_upper = 1, jac_lower = 1)),
-        saveat,
-    ),
-    millerclayloam,
-)  # 5.9 s
-euler_result = HDD.benchmark!(
-    HDD.diffeq_model_dae(
-        millerclayloam,
-        HDD.SolverConfig(alg = ImplicitEuler(), maxiters = 100_000),
-        saveat,
-    ),
-    millerclayloam,
-)  # 4.1 s, dae: 8.4 s
-
-
-euler_result = HDD.benchmark!(
-    HDD.diffeq_model_dae(
-        millerclayloam,
-        HDD.SolverConfig(alg = ImplicitEuler(), maxiters = 100_000),
-        saveat,
-    ),
-    millerclayloam,
-)  # 4.1 s, dae: 8.4 s
-
-
-
-euler_result = HDD.benchmark!(
-    HDD.diffeq_model_dae(
-        millerclayloam,
-        HDD.SolverConfig(
-            alg = ImplicitEuler(),
-            maxiters = 100_000,
-            controller = HDD.CustomController(dtmin = 1e-9),
-        ),
-        saveat,
-    ),
-    millerclayloam,
-)  # 4.1 s, dae: 8.4 s
-
-qndf_result = HDD.benchmark!(
-    HDD.diffeq_model_dae(
-        millerclayloam,
-        HDD.SolverConfig(alg = QNDF(), maxiters = 100_000),
-        saveat,
-    ),
-    millerclayloam,
-)  # 4.1 s, dae: 11.2 s
-
-qbdf_result = HDD.benchmark!(
-    HDD.diffeq_model_dae(
-        millerclayloam,
-        HDD.SolverConfig(alg = QBDF(), maxiters = 100_000),
-        saveat,
-    ),
-    millerclayloam,
-)  # 4.1 s, dae: 9.5 s
-fbdf_result = HDD.benchmark!(
-    HDD.diffeq_model(
-        millerclayloam,
-        HDD.SolverConfig(alg = FBDF(), maxiters = 100_000),
-        saveat,
-    ),
-    millerclayloam,
-)
+plotresult(cases, solver_presets, results)
+savefig("cases/richards/miller.svg")
