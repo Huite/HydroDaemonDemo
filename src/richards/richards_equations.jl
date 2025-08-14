@@ -149,7 +149,7 @@ function dwaterbalance!(J, ψ, parameters::RichardsParameters)
 
     # Then compute the diagonal term
     @. dFᵢdψᵢ = 0.0
-    @views @. dFᵢdψᵢ[1:end-1] += -dFᵢ₊₁dψᵢ
+    @views @. dFᵢdψᵢ[1:(end-1)] += -dFᵢ₊₁dψᵢ
     @views @. dFᵢdψᵢ[2:end] += -dFᵢ₋₁dψᵢ
 
     J.d[1] += bottomboundary_jacobian(ψ, parameters, bottomboundary)
@@ -181,8 +181,8 @@ end
 # This is the "ψ-based" Richards equation.
 
 function waterbalance!(du, u, p::DiffEqParams{<:RichardsParameters}, t)
-    @views dψ = du[1:end-2]
-    @views ψ = u[1:end-2]
+    @views dψ = du[1:(end-2)]
+    @views ψ = u[1:(end-2)]
     parameters = p.parameters
     qbot, qtop = waterbalance!(dψ, ψ, parameters)
     Δz = parameters.Δz
@@ -205,8 +205,8 @@ function waterbalance_dae!(du, u, parameters::RichardsParametersDAE)
     n = parameters.n
     dψ = @view du[1:n]  # Acts as ∇q first
     ψ = @view u[1:n]
-    dθ = @view du[n+1:end-2]
-    θ = @view u[n+1:end-2]
+    dθ = @view du[(n+1):(end-2)]
+    θ = @view u[(n+1):(end-2)]
 
     qbot, qtop = waterbalance!(dψ, ψ, parameters)
     Δz = parameters.Δz

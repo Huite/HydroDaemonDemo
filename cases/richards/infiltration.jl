@@ -34,7 +34,7 @@ function create_infiltration(forcing)
         Δz = 0.1,
         Δztotal = 1.5,
         tend = forcing.t[end] + 1.0,
-        dt=1.0,
+        dt = 1.0,
         ψ0 = HDD.InitialConstant(-3.59),
         bottomboundary = HDD.FreeDrainage(),
         topboundary = nothing,
@@ -76,8 +76,18 @@ solver_presets = (
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
     HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = CVODE_BDF(jac_upper = 1, jac_lower = 1))),
-    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler(), controller=HDD.CustomController(dtmin=1e-9))),
-    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler(), controller=HDD.CustomController(dtmin=1e-9))),
+    HDD.DiffEqSolverPreset(
+        HDD.SolverConfig(
+            alg = ImplicitEuler(),
+            controller = HDD.CustomController(dtmin = 1e-9),
+        ),
+    ),
+    HDD.DAEDiffEqSolverPreset(
+        HDD.SolverConfig(
+            alg = ImplicitEuler(),
+            controller = HDD.CustomController(dtmin = 1e-9),
+        ),
+    ),
 )
 
 df, results = run(infiltration, solver_presets)
@@ -95,9 +105,9 @@ function plot_storage(forcingdf, case, solver_presets, results)
         plot!(
             date_range,
             result.waterbalance.storage[start_index:end_index],
-            label=HDD.name(preset),
-            xlabel="Date",
-            ylabel="Storage (m)"
+            label = HDD.name(preset),
+            xlabel = "Date",
+            ylabel = "Storage (m)",
         )
     end
     display(current())
@@ -117,9 +127,9 @@ function plot_drainage(forcingdf, case, solver_presets, results)
         plot!(
             date_range[2:end],
             -1.0 .* diff(result.waterbalance.qbot[start_index:end_index]),
-            label=HDD.name(preset),
-            xlabel="Date",
-            ylabel="Drainage (m/d)",
+            label = HDD.name(preset),
+            xlabel = "Date",
+            ylabel = "Drainage (m/d)",
         )
     end
     display(current())
@@ -132,7 +142,7 @@ savefig("cases/richards/infiltration-storage.png")
 savefig("cases/richards/infiltration-storage.svg")
 
 
-plot_drainage(forcingdf, infiltration, solver_presets, results[1:end-2])
+plot_drainage(forcingdf, infiltration, solver_presets, results[1:(end-2)])
 savefig("cases/richards/infiltration-drainage.png")
 savefig("cases/richards/infiltration-drainage.svg")
 

@@ -86,12 +86,7 @@ function plothead(case, solver_presets, results)
         end
 
         ψ = result.model.saved[1:n, end]
-        plot!(
-            ψ,
-            label=name,
-            xlabel="Depth (cm)",
-            ylabel="Pressure head (cm)"
-        )
+        plot!(ψ, label = name, xlabel = "Depth (cm)", ylabel = "Pressure head (cm)")
     end
     display(current())
     return

@@ -41,7 +41,7 @@ function linearsolve!(solver::LinearSolverThomas)
         ϕ[j] = (rhs[j] - J.dl[j-1] * ϕ[j-1]) / B
     end
 
-    for j = 1:n-1
+    for j = 1:(n-1)
         k = n - j
         ϕ[k] = ϕ[k] - y[k+1] * ϕ[k+1]
     end

@@ -123,7 +123,7 @@ function SplineConstitutive(
                     log10(abs(ψmin)),
                     log10(abs(ψe - 2.0 * offset)),
                     length = nknots * 10,
-                )
+                ),
             )
         θref = moisture_content.(ψtest, Ref(parameters))
         kref = conductivity.(ψtest, Ref(parameters))

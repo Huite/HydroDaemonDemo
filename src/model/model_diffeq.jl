@@ -62,8 +62,8 @@ end
 function create_tolvectors(nstate, nflows, abstol, reltol)
     vector_abstol = fill(abstol, nstate)
     vector_reltol = fill(reltol, nstate)
-    @views vector_abstol[end-nflows+1:end] .= 1e12
-    @views vector_reltol[end-nflows+1:end] .= 1e12
+    @views vector_abstol[(end-nflows+1):end] .= 1e12
+    @views vector_reltol[(end-nflows+1):end] .= 1e12
     return vector_abstol, vector_reltol
 end
 
@@ -129,7 +129,7 @@ function DiffEqHydrologicalModel(
         parameters,
         savedresults,
         nstate,
-        solverconfig.detect_sparsity, 
+        solverconfig.detect_sparsity,
         initial,
         tspan,
     )

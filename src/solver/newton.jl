@@ -46,7 +46,6 @@ function converged(newton::NewtonSolver, state)
     )
 end
 
-
 function solve!(newton::NewtonSolver{LS,R}, state, parameters, Δt) where {LS,R}
     # Maintain old state for time stepping.
     copy_state!(state, parameters)

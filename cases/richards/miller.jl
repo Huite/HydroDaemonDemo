@@ -117,15 +117,15 @@ solver_presets = (
         reltol = 1e-6,
         timestepper = HDD.AdaptiveTimeStepper(0.01),
     ),
-#    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler(), maxiters = 500_000)),
-#    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler(), maxiters = 500_000)),
+    #    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler(), maxiters = 500_000)),
+    #    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler(), maxiters = 500_000)),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(), maxiters = 200_000)),
     HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(), maxiters = 200_000)),
-#    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = FBDF(), maxiters = 200_000)),
-#    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = FBDF(), maxiters = 500_000)),  # 2e5 not enough
-#    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QBDF(), maxiters = 200_000)),
-#    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QBDF(), maxiters = 200_000)),
-#    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = CVODE_BDF(jac_upper = 1, jac_lower = 1))),
+    #    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = FBDF(), maxiters = 200_000)),
+    #    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = FBDF(), maxiters = 500_000)),  # 2e5 not enough
+    #    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QBDF(), maxiters = 200_000)),
+    #    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QBDF(), maxiters = 200_000)),
+    #    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = CVODE_BDF(jac_upper = 1, jac_lower = 1))),
 )
 cases = (
     sand = create_millersand(),
@@ -139,18 +139,19 @@ CSV.write("cases/richards/miller.csv", df)
 
 function plotresult(cases, solver_presets, results)
     plot()
-    for ((preset, (soil, case)), result) in zip(Iterators.product(solver_presets, pairs(cases)), results)
+    for ((preset, (soil, case)), result) in
+        zip(Iterators.product(solver_presets, pairs(cases)), results)
         n = case.parameters.n
         Δz = case.parameters.Δz
-        z = collect(Δz:Δz:n*Δz)
+        z = collect(Δz:Δz:(n*Δz))
         ψ = result.model.saved[1:n, end]
         plot!(
             z,
             ψ,
-            permute=(:y, :x),
-            label="$(string(soil)), $(HDD.name(preset))",
-            ylabel="Pressure head (m)",
-            xlabel="Elevation (m)",
+            permute = (:y, :x),
+            label = "$(string(soil)), $(HDD.name(preset))",
+            ylabel = "Pressure head (m)",
+            xlabel = "Elevation (m)",
         )
     end
     display(current())
