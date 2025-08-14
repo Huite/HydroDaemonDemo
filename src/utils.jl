@@ -1,3 +1,16 @@
+function safepow(base, exponent)
+    # Handle problematic cases that would produce Inf/NaN
+    tol = 1e-12
+    if exponent < 0 && (abs(base) < 1e-12 || abs(base - 1) < tol)
+        return 0.0
+    end
+    return base^exponent
+end
+
+function dmin(a, b)
+    return a <= b ? 1.0 : 0.0
+end
+
 function dclamp(x, lo, hi)
     if x <= lo
         return 0.0

@@ -15,19 +15,19 @@ function waterbalance!(dS, S, fuse::Fuse070Parameters)
 
     dS[1] = p - qsx - e1 - q12 - qufof
     dS[2] = q12 - qb
-    return
+    return e1, qsx + qufof + qb
 end
 
 function explicit_timestep!(state::Fuse070State, fuse::Fuse070Parameters, Δt)
     (; dS, S) = state
-    waterbalance!(dS, S, parameters)
+    waterbalance!(dS, S, fuse)
     @. state.S += state.dS * Δt
     @. state.S = max(state.S, 0)
     return
 end
 
 function residual!(rhs, state::Fuse070State, fuse::Fuse070Parameters, Δt)
-    waterbalance!(state, fuse)
+    waterbalance!(state.dS, state.S, fuse)
     # Newton-Raphson use the negative residual
     @. rhs = -(state.dS - (state.S - state.Sold) / Δt)
     return
@@ -42,15 +42,16 @@ function dwaterbalance!(J, S, fuse::Fuse070Parameters)
     S⁺ = S1 / (fuse.ϕtens * fuse.S1max)
     dS⁺ = 1.0 / (fuse.ϕtens * fuse.S1max)
     sf = clamp(S1 / fuse.S1max, 0.0, 1.0)
-    dsf = dclamp(S1 / fuse.S1max, 0.0, 1.0)
+    dsf = dclamp(S1 / fuse.S1max, 0.0, 1.0) / fuse.S1max
     act = activation(S1, fuse.S1max)
     dact = dactivation(S1, fuse.S1max)
 
     # Apply chain rule and product rule as needed.
+    # Use safepow to avoid exponentiation of 0^(negative number)
     de1 = PET * min(S⁺, 1.0) * dS⁺
-    dq12 = fuse.c * fuse.ku * sf^(fuse.c - 1) * dsf
+    dq12 = fuse.c * fuse.ku * safepow(sf, fuse.c - 1) * dsf
     qsx = p * (1 - (1 - sf)^fuse.b)
-    dqsx = p * fuse.b * (1 - sf)^(fuse.b - 1) * dsf * 1.0 / fuse.S1max
+    dqsx = p * fuse.b * safepow(1 - sf, fuse.b - 1) * dsf
     dqufof = -dqsx * act + (p - qsx) * dact
     dqb = -fuse.v
 
@@ -62,17 +63,20 @@ function dwaterbalance!(J, S, fuse::Fuse070Parameters)
     return
 end
 
+
 function jacobian!(J, state::Fuse070State, fuse::Fuse070Parameters, Δt)
     dwaterbalance!(J, state.S, fuse)
-    J[1, 1] .-= 1.0 / Δt
-    J[2, 2] .-= 1.0 / Δt
+    J[1, 1] -= 1.0 / Δt
+    J[2, 2] -= 1.0 / Δt
     return
 end
 
 # Wrapped for DifferentialEquations.jl
 
-function waterbalance!(dS, S, p::DiffEqParams{Fuse070Parameters}, t)
-    waterbalance!(dS, S, p.parameters)
+function waterbalance!(du, u, p::DiffEqParams{Fuse070Parameters}, t)
+    e, q = waterbalance!(du, u, p.parameters)
+    du[end-1] = e
+    du[end] = q
     return
 end
 
@@ -82,5 +86,6 @@ function dwaterbalance!(J, S, p::DiffEqParams{Fuse070Parameters}, t)
 end
 
 function isoutofdomain(u, p::DiffEqParams{Fuse070Parameters}, t)::Bool
-    return any(value < 0 for value in u)
+    S = @view u[1:2]
+    return any(value < 0 for value in S)
 end
