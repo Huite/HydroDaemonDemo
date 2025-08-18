@@ -10,7 +10,7 @@ using CSV
 using DataFrames
 using Dates
 using SparseArrays
-using SparseConnectivityTracer: TracerSparsityDetector, jacobian_sparsity
+using SparseConnectivityTracer: AbstractTracer, TracerSparsityDetector, jacobian_sparsity
 import DataInterpolations
 
 # Provide a CustomController
@@ -28,6 +28,7 @@ include("solver/linear.jl")
 include("solver/relax.jl")
 include("solver/timestep.jl")
 include("solver/newton.jl")
+include("solver/picard.jl")
 
 include("utils.jl")
 include("forcing.jl")
@@ -42,9 +43,9 @@ include("reservoirs/reservoirs_state.jl")
 include("reservoirs/reservoirs_equations.jl")
 
 # FUSE-070 conceptual model
-include("fuse/fuse070_parameters.jl")
-include("fuse/fuse070_state.jl")
+include("fuse/fuse.jl")
 include("fuse/fuse070_equations.jl")
+include("fuse/fuse550_equations.jl")
 
 # Richards 1D column
 include("richards/constitutive/haverkamp.jl")

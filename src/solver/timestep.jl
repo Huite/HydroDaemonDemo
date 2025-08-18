@@ -20,7 +20,7 @@ function compute_timestep_size(
     return timestepper.Δt0
 end
 
-struct AdaptiveTimeStepper <: TimeStepper
+@kwdef struct AdaptiveTimeStepper <: TimeStepper
     Δt0::Float64
     n_increase::Int
     increase::Float64
@@ -28,16 +28,21 @@ struct AdaptiveTimeStepper <: TimeStepper
     decrease::Float64
     failure::Float64
     Δtmin::Float64
-    function AdaptiveTimeStepper(
-        Δt0;
+    Δtmax::Float64
+    function AdaptiveTimeStepper(;
+        Δt0 = nothing,
         n_increase = 5,
         increase = 1.25,
         n_decrease = 15,
         decrease = 0.9,
         failure = 0.5,
         Δtmin = 1e-6,
+        Δtmax = 1.0,
     )
-        return new(Δt0, n_increase, increase, n_decrease, decrease, failure, Δtmin)
+        if isnothing(Δt0)
+            Δt0 = sqrt(Δtmin * Δtmax)
+        end
+        return new(Δt0, n_increase, increase, n_decrease, decrease, failure, Δtmin, Δtmax)
     end
 end
 
@@ -62,12 +67,5 @@ function compute_timestep_size(
     if newΔt < timestepper.Δtmin
         error("Time step below Δtmin")
     end
-    return newΔt
-end
-
-
-struct CFLTimeStepper <: TimeStepper
-    Δt0::Float64
-    target::Float64
-    minstep::Float64
+    return min(newΔt, timestepper.Δtmax)
 end

@@ -8,6 +8,7 @@ abstract type ImplicitState <: State end
 
 # Model specific types
 abstract type ConstitutiveRelationships end
+abstract type Fuse070 <: Parameters end
 
 function aqueous_saturation(ψ, C::ConstitutiveRelationships)
     return moisture_content(ψ, C) / C.θs
@@ -28,6 +29,7 @@ end
 function reset!(p::Parameters, u0, initial)
     u0 .= 0.0
     @views u0[1:length(initial)] .= initial
+    @show u0
     return
 end
 

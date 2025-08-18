@@ -1,13 +1,8 @@
-struct ImplicitHydrologicalModel{
-    P<:Parameters,
-    S<:State,
-    T<:TimeStepper,
-    LS<:LinearSolver,
-    R<:Relaxation,
-} <: HydrologicalModel
+struct ImplicitHydrologicalModel{P<:Parameters,S<:State,T<:TimeStepper,NLS} <:
+       HydrologicalModel
     parameters::P  # Physical parameters
     state::S  # State and dependent variables
-    solver::NewtonSolver{LS,R}  # Non-linear Newton-Raphson solver
+    solver::NLS  # non-linear solver
     tspan::Tuple{Float64,Float64}
     saveat::Vector{Float64}  # frequency
     saved::Matrix{Float64}  # output
@@ -22,7 +17,9 @@ function Base.show(io::IO, model::ImplicitHydrologicalModel)
     println(io, "  Time span: ", model.tspan)
     println(io, "  Solver: ", typeof(model.solver))
     println(io, "    Linear solver: ", typeof(model.solver).parameters[1])
-    println(io, "    Relaxation: ", typeof(model.solver).parameters[2])
+    if typeof(model.solver) isa NewtonSolver
+        println(io, "    Relaxation: ", typeof(model.solver).parameters[2])
+    end
     println(io, "  Time stepper: ", typeof(model.timestepper))
     println(io, "  Save points: ", length(model.saveat), " points")
     if !isempty(model.saveat)
@@ -34,7 +31,7 @@ end
 function ImplicitHydrologicalModel(
     parameters::Parameters,
     initial::Vector{Float64},
-    solver::NewtonSolver,
+    solver,
     tspan,
     saveat,
     timestepper::TimeStepper,
@@ -65,12 +62,12 @@ First order implicit (Euler Backward) time integration, with optional:
 """
 function timestep!(model::ImplicitHydrologicalModel, Δt)
     copy_state!(model.state, model.parameters)
-    converged, n_newton_iter = solve!(model.solver, model.state, model.parameters, Δt)
+    converged, n_iter = nonlinearsolve!(model.solver, model.state, model.parameters, Δt)
 
     while !converged
-        Δt = compute_timestep_size(model.timestepper, Δt, converged, n_newton_iter)
+        Δt = compute_timestep_size(model.timestepper, Δt, converged, n_iter)
         rewind!(model.state)
-        converged, n_newton_iter = solve!(model.solver, model.state, model.parameters, Δt)
+        converged, n_iter = nonlinearsolve!(model.solver, model.state, model.parameters, Δt)
     end
 
     # Compute the flows based on the current solution
@@ -80,4 +77,24 @@ function timestep!(model::ImplicitHydrologicalModel, Δt)
     #    Δt_next = compute_next_time_step(model.timestepper, Δt, converged, n_newton_iter)
     #    return Δt, Δt_next
     return Δt
+end
+
+function nonlinearsolve!(nonlinearsolver, state, parameters, Δt)
+    for i = 1:nonlinearsolver.maxiter
+        residual!(nonlinearsolver.linearsolver.rhs, state, parameters, Δt)
+        # Check the residual immediately for convergence.
+        if converged(nonlinearsolver, primary(state))
+            return true, i
+        end
+        setmatrix!(nonlinearsolver, state, parameters, Δt)
+        linearsolve!(nonlinearsolver.linearsolver)
+        relaxed_update!(
+            nonlinearsolver.relax,
+            nonlinearsolver.linearsolver,
+            state,
+            parameters,
+            Δt,
+        )
+    end
+    return false, nonlinearsolver.maxiter
 end

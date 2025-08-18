@@ -10,7 +10,7 @@ struct ScalarRelaxation <: Relaxation
     end
 end
 
-function newton_step!(
+function relaxed_update!(
     relaxation::ScalarRelaxation,
     linearsolver,
     state,
@@ -18,7 +18,6 @@ function newton_step!(
     Δt,
 )::Bool
     apply_update!(state, linearsolver, 1.0 - relaxation.relax)
-    residual!(linearsolver.rhs, state, parameters, Δt)
     return true
 end
 
@@ -149,7 +148,7 @@ function compute_step(ls::CubicLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
     return α₂, newstep
 end
 
-function newton_step!(ls::LineSearch, linearsolver, state, parameters, Δt)
+function relaxed_update!(ls::LineSearch, linearsolver, state, parameters, Δt)
     # α₀ = 0.0 (implicit)
     α₁ = 0.0
     α₂ = ls.a0
@@ -184,6 +183,5 @@ function newton_step!(ls::LineSearch, linearsolver, state, parameters, Δt)
     end
     # Achieved maximum iterations, use αbest.
     apply_update!(state, linearsolver, αbest)
-    residual!(linearsolver.rhs, state, parameters, Δt)
     return false
 end

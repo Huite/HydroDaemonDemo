@@ -53,8 +53,9 @@ end
 
 function save_state!(integrator)
     (; u, p) = integrator
+    n = p.parameters.n
     idx = p.results.save_idx
-    p.results.saved[:, idx] .= u
+    p.results.saved[1:n, idx] .= u[1:n]
     p.results.save_idx += 1
     return
 end
@@ -67,32 +68,30 @@ function create_tolvectors(nstate, nflows, abstol, reltol)
     return vector_abstol, vector_reltol
 end
 
-function prepare_ode_function(p::Parameters, nstate, detect_sparsity)
-    if detect_sparsity
-        J = jacobian_sparsity(
-            (du, u) -> waterbalance!(du, u, p),
-            zeros(nstate),
-            zeros(nstate),
-            TracerSparsityDetector(),
-        )
-    else
-        J = Tridiagonal(zeros(nstate - 1), zeros(nstate), zeros(nstate - 1))
-    end
-
-    f = ODEFunction{true}(waterbalance!; jac_prototype = J)
-    return f
-end
-
 function prepare_problem(
     parameters::Parameters,
     savedresults,
     nstate,
+    nflow,
     detect_sparsity,
     initial,
     tspan,
 )
-    f = prepare_ode_function(parameters, nstate, detect_sparsity)
-    u0 = zeros(nstate)
+    nunknown = nstate + nflow
+    if detect_sparsity
+        J = jacobian_sparsity(
+            (du, u) -> waterbalance!(du, u, t, parameters),
+            zeros(nunknown),
+            zeros(nunknown),
+            0.0,
+            TracerSparsityDetector(),
+        )
+    else
+        J = Tridiagonal(zeros(nunknown - 1), zeros(nunknown), zeros(nunknown - 1))
+    end
+
+    f = ODEFunction{true}(waterbalance!; jac_prototype = J)
+    u0 = zeros(nunknown)
     @views u0[1:length(initial)] .= initial
     params = DiffEqParams(parameters, savedresults)
     problem = ODEProblem(f, u0, tspan, params)
@@ -111,11 +110,10 @@ function DiffEqHydrologicalModel(
     saveat = create_saveat(saveat, forcing, tspan)
     pushfirst!(saveat, tstart)
 
-    nflows = 2
-    nstate = length(initial) + nflows
-
+    nflow = 2
+    nstate = length(initial)
     nsave = length(saveat)
-    saved = zeros(nstate, nsave)
+    saved = zeros(nstate + nflow, nsave)
     savedresults = SavedResults(saved, 1)
     save_callback = PresetTimeCallback(saveat, save_state!; save_positions = (false, false))
 
@@ -129,6 +127,7 @@ function DiffEqHydrologicalModel(
         parameters,
         savedresults,
         nstate,
+        nflow,
         solverconfig.detect_sparsity,
         initial,
         tspan,
@@ -162,6 +161,7 @@ function run!(model::DiffEqHydrologicalModel)
     return
 end
 
+# TODO: replace by BenchmarkTools set up
 function reset_and_run!(model::DiffEqHydrologicalModel, initial)
     # Wipe results
     model.integrator.p.results.saved .= 0.0
@@ -177,7 +177,6 @@ function reset_and_run!(model::DiffEqHydrologicalModel, initial)
     run!(model)
     return
 end
-
 
 function get_kwargs(structure)
     structtype = typeof(structure)

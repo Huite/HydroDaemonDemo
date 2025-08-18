@@ -44,6 +44,4 @@ end
 
 function rewind!(state::RichardsState)
     copyto!(state.ψ, state.ψ_old)
-    # TODO: this is overwritten anyway in a synchronize?
-    # copyto!(state.θ, state.θ_old)
 end

@@ -16,6 +16,14 @@ function topboundary_jacobian(ψ, parameters, boundary::Nothing)
     return 0.0
 end
 
+function bottomboundary_coefficient(ψ, parameters::AbstractRichards, boundary::Nothing)
+    return 0.0
+end
+
+function topboundary_coefficient(ψ, parameters::AbstractRichards, boundary::Nothing)
+    return 0.0
+end
+
 # Precipitation
 
 function forcingflux(ψ, parameters::AbstractRichards)
@@ -51,6 +59,12 @@ function bottomboundary_jacobian(ψ, parameters::AbstractRichards, boundary::Hea
     return -(kmean / Δz) + dk * (Δψ / Δz - 1)
 end
 
+function bottomboundary_coefficient(ψ, parameters::AbstractRichards, boundary::HeadBoundary)
+    kmean = 0.5 * (conductivity(ψ[1], parameters.constitutive[1]) + boundary.k)
+    Δz = 0.5 * parameters.Δz
+    return -kmean / Δz
+end
+
 function topflux(ψ, parameters::AbstractRichards, boundary::HeadBoundary)
     kmean = 0.5 * (conductivity(ψ[end], parameters.constitutive[end]) + boundary.k)
     Δψ = boundary.ψ - ψ[end]
@@ -66,6 +80,12 @@ function topboundary_jacobian(ψ, parameters::AbstractRichards, boundary::HeadBo
     return -(kmean / Δz) + dk * (Δψ / Δz + 1)
 end
 
+function topboundary_coefficient(ψ, parameters::AbstractRichards, boundary::HeadBoundary)
+    kmean = 0.5 * (conductivity(ψ[end], parameters.constitutive[end]) + boundary.k)
+    Δz = 0.5 * parameters.Δz
+    return -kmean / Δz
+end
+
 # Free drainage
 
 struct FreeDrainage end
@@ -76,6 +96,10 @@ end
 
 function bottomboundary_jacobian(ψ, parameters::AbstractRichards, boundary::FreeDrainage)
     return -dconductivity(ψ[1], parameters.constitutive[1])
+end
+
+function bottomboundary_coefficient(ψ, parameters::AbstractRichards, boundary::FreeDrainage)
+    return 0.0
 end
 
 # Full column
@@ -139,18 +163,18 @@ function dwaterbalance!(J, ψ, parameters::RichardsParameters)
         upper = i + 1
         k_upper = conductivity(ψ[upper], constitutive[upper])
         dk_upper = dconductivity(ψ[upper], constitutive[upper])
-        k_inter = 0.5 * (k_lower + k_upper)
+        conductance = 0.5 * (k_lower + k_upper) * Δz⁻¹
         Δψ = ψ[upper] - ψ[i]
-        dFᵢ₊₁dψᵢ[i] = (k_inter * Δz⁻¹) - dk_lower * (Δψ * Δz⁻¹) * 0.5
-        dFᵢ₋₁dψᵢ[i] = (k_inter * Δz⁻¹) + dk_lower * (Δψ * Δz⁻¹) * 0.5
+        dFᵢ₊₁dψᵢ[i] = conductance - dk_lower * (Δψ * Δz⁻¹) * 0.5
+        dFᵢ₋₁dψᵢ[i] = conductance + dk_lower * (Δψ * Δz⁻¹) * 0.5
         k_lower = k_upper
         dk_lower = dk_upper
     end
 
     # Then compute the diagonal term
-    @. dFᵢdψᵢ = 0.0
-    @views @. dFᵢdψᵢ[1:(end-1)] += -dFᵢ₊₁dψᵢ
-    @views @. dFᵢdψᵢ[2:end] += -dFᵢ₋₁dψᵢ
+    dFᵢdψᵢ .= 0.0
+    @views dFᵢdψᵢ[1:(end-1)] .+= -dFᵢ₊₁dψᵢ
+    @views dFᵢdψᵢ[2:end] .+= -dFᵢ₋₁dψᵢ
 
     J.d[1] += bottomboundary_jacobian(ψ, parameters, bottomboundary)
     J.d[end] += topboundary_jacobian(ψ, parameters, topboundary)
@@ -174,6 +198,49 @@ function jacobian!(J, state, parameters::RichardsParameters, Δt)
         Ss = parameters.constitutive[i].Ss
         J.d[i] -= (Δz * (C + Sa * Ss)) / Δt
     end
+    return
+end
+
+"""
+    Construct the coefficient matrix for the "modfied-Picard" Richards equation finite
+    difference system.
+"""
+function coefficients!(A, state, parameters::RichardsParameters, Δt)
+    (; constitutive, Δz, bottomboundary, topboundary, n) = parameters
+    ψ = state.ψ
+
+    Cᵢ = A.d
+    Cᵢ₊₁ = A.dl
+    Cᵢ₋₁ = A.du
+    Δz⁻¹ = 1.0 / Δz
+
+    for i = 1:n
+        C = specific_moisture_capacity(ψ[i], constitutive[i])
+        Sa = aqueous_saturation(ψ[i], constitutive[i])
+        Ss = constitutive[i].Ss
+        Cᵢ[i] = -(Δz * (C + Sa * Ss)) / Δt
+    end
+
+    k_lower = conductivity(ψ[1], constitutive[1])
+    for i = 1:(n-1)
+        upper = i + 1
+        k_upper = conductivity(ψ[upper], constitutive[upper])
+        conductance = 0.5 * (k_lower + k_upper) * Δz⁻¹
+        Cᵢ₊₁[i] = conductance
+        Cᵢ₋₁[i] = conductance
+        # Next iteration
+        k_lower = k_upper
+    end
+
+    # Then add to the diagonal term
+    @views Cᵢ[1:(end-1)] .+= -Cᵢ₊₁
+    @views Cᵢ[2:end] .+= -Cᵢ₋₁
+
+    # Boundary conditions
+    cbot = bottomboundary_coefficient(ψ, parameters, bottomboundary)
+    ctop = topboundary_coefficient(ψ, parameters, topboundary)
+    Cᵢ[1] += cbot
+    Cᵢ[end] += ctop
     return
 end
 

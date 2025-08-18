@@ -35,7 +35,7 @@ function RichardsCase(;
 )
     n = Int(Δztotal / Δz)
     if isnothing(forcing)
-        forcing = HydroDaemonDemo.MeteorologicalForcing([0.0], [0.0], [0.0])
+        forcing = MeteorologicalForcing([0.0], [0.0], [0.0])
     end
     saveat = collect(0.0:dt:tend)
     return RichardsCase(
@@ -53,7 +53,7 @@ function RichardsCase(;
 end
 
 function implicit_model(case::RichardsCase, solver, timestepper, saveat)
-    return HydroDaemonDemo.ImplicitHydrologicalModel(
+    return ImplicitHydrologicalModel(
         case.parameters,
         case.ψ0,
         solver,
@@ -64,7 +64,7 @@ function implicit_model(case::RichardsCase, solver, timestepper, saveat)
 end
 
 function diffeq_model(case::RichardsCase, solverconfig, saveat)
-    return HydroDaemonDemo.DiffEqHydrologicalModel(
+    return DiffEqHydrologicalModel(
         case.parameters,
         case.ψ0,
         case.tspan,
@@ -74,10 +74,10 @@ function diffeq_model(case::RichardsCase, solverconfig, saveat)
 end
 
 function diffeq_model_dae(case::RichardsCase, solverconfig, saveat)
-    θ0 = HydroDaemonDemo.moisture_content.(case.ψ0, case.parameters.constitutive)
+    θ0 = moisture_content.(case.ψ0, case.parameters.constitutive)
     u0 = [case.ψ0; θ0]
-    return HydroDaemonDemo.DiffEqHydrologicalModel(
-        HydroDaemonDemo.RichardsParametersDAE(case.parameters),
+    return DiffEqHydrologicalModel(
+        RichardsParametersDAE(case.parameters),
         u0,
         case.tspan,
         saveat,
@@ -139,7 +139,7 @@ struct BenchMarkResult{M}
 end
 
 function benchmark_model!(model, case::RichardsCase)
-    trial = @benchmark HydroDaemonDemo.reset_and_run!($model, $(case.ψ0))
+    trial = @benchmark reset_and_run!($model, $(case.ψ0))
     wb = waterbalance(model)
     return BenchMarkResult(model, trial, wb, massbalance_bias(wb), massbalance_rmse(wb))
 end

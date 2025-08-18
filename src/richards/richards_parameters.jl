@@ -80,37 +80,32 @@ function RichardsParametersDAE(p::RichardsParameters)
     )
 end
 
-function prepare_ode_function(p::RichardsParametersDAE, nstate, detect_sparsity)
-    n = Int((nstate - 2) / 2)
-    if detect_sparsity
-        J = jacobian_sparsity(
-            (du, u) -> waterbalance_dae!(du, u, p),
-            zeros(nstate),
-            zeros(nstate),
-            TracerSparsityDetector(),
-        )
-    else
-        # TODO: Check flow entries
-        # Construct sparsity pattern prototype
-        i = Int[]
-        j = Int[]
-        # main diagonal
-        append!(i, 1:nstate)
-        append!(j, 1:nstate)
-        # ψ block: sub-/super-diagonals
-        append!(i, 2:n)
-        append!(j, 1:(n-1))
-        append!(i, 1:(n-1))
-        append!(j, 2:n)
-        # lower-left block (–C)
-        append!(i, (n+1):2n)
-        append!(j, 1:n)
-        # qtop, qbot
-        append!(i, 2n:nstate)
-        append!(j, 2n:nstate)
-        J = sparse(i, j, ones(length(i)), nstate, nstate)
-    end
-    M = Diagonal([ones(n); zeros(n); ones(2)])
+function prepare_problem(
+    parameters::RichardsParametersDAE,
+    savedresults,
+    nstate,
+    nflow,
+    detect_sparsity,
+    initial,
+    tspan,
+)
+    nunknown = nstate * 2 + nflow
+    # ignores detect_sparsity; always runs SparseConnectivityTracer.
+    J = jacobian_sparsity(
+        (du, u) -> waterbalance_dae!(du, u, parameters),
+        zeros(nunknown),
+        zeros(nunknown),
+        TracerSparsityDetector(),
+    )
+    M = Diagonal([ones(nstate); zeros(nstate); ones(nflow)])
     f = ODEFunction(waterbalance!; mass_matrix = M, jac_prototype = J)
-    return f
+    u0 = zeros(nunknown)
+    θ0 = moisture_content.(initial, parameters.constitutive)
+    @views u0[1:nstate] .= initial
+    dz = parameters.Δz
+    @views u0[(nstate+1):(nstate*2)] .=
+        dz .* (θ0 .+ elastic_storage.(initial, parameters.constitutive))
+    params = DiffEqParams(parameters, savedresults)
+    problem = ODEProblem(f, u0, tspan, params)
+    return problem
 end

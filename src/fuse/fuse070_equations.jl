@@ -4,33 +4,33 @@ function waterbalance!(dS, S, fuse::Fuse070Parameters)
 
     S1 = S[1]
     S2 = S[2]
-    S⁺ = S1 / (fuse.ϕtens * fuse.S1max)
-    sf = clamp(S1 / fuse.S1max, 0.0, 1.0)
 
-    qsx = p * (1 - (1 - sf)^fuse.b)
-    e1 = PET * min(S⁺, 1.0)
-    q12 = fuse.ku * sf^fuse.c
-    qufof = (p - qsx) * activation(S1, fuse.S1max)
+    # Compuate saturation variables
+    # saturation of tension storage may be > 1.0 ("super-saturation")
+    S1_sat_tens = S1 / (fuse.ϕtens * fuse.S1max)
+    # Ensure saturation is [0.0 - 1.0], since exponentiation of a negative
+    # number results in a domain error (requires complex numbers).
+    S1_sat = clamp_smooth(S1, 0.0, fuse.S1max, fuse.ω) / fuse.S1max
+    act = sigmoid_activation(S1, fuse.S1max, fuse.ω)
+
+    # Runoff
+    qsx = p * (1 - (1 - S1_sat)^fuse.b)
+
+    # Evaporation
+    e1 = PET * dmin_smooth(S1_sat_tens, 1.0, FUSE_RHO)
+
+    # Drainage
+    q12 = fuse.ku * S1_sat^fuse.c
+
+    # Baseflow
     qb = fuse.v * S2
+
+    # Overflow
+    qufof = (p - qsx) * act
 
     dS[1] = p - qsx - e1 - q12 - qufof
     dS[2] = q12 - qb
     return e1, qsx + qufof + qb
-end
-
-function explicit_timestep!(state::Fuse070State, fuse::Fuse070Parameters, Δt)
-    (; dS, S) = state
-    waterbalance!(dS, S, fuse)
-    @. state.S += state.dS * Δt
-    @. state.S = max(state.S, 0)
-    return
-end
-
-function residual!(rhs, state::Fuse070State, fuse::Fuse070Parameters, Δt)
-    waterbalance!(state.dS, state.S, fuse)
-    # Newton-Raphson use the negative residual
-    @. rhs = -(state.dS - (state.S - state.Sold) / Δt)
-    return
 end
 
 function dwaterbalance!(J, S, fuse::Fuse070Parameters)
@@ -39,53 +39,26 @@ function dwaterbalance!(J, S, fuse::Fuse070Parameters)
     S1 = S[1]
 
     # Compute the terms and their derivatives.
-    S⁺ = S1 / (fuse.ϕtens * fuse.S1max)
-    dS⁺ = 1.0 / (fuse.ϕtens * fuse.S1max)
-    sf = clamp(S1 / fuse.S1max, 0.0, 1.0)
-    dsf = dclamp(S1 / fuse.S1max, 0.0, 1.0) / fuse.S1max
-    act = activation(S1, fuse.S1max)
-    dact = dactivation(S1, fuse.S1max)
+    S1_sat_tens = S1 / (fuse.ϕtens * fuse.S1max)
+    dS1_sat_tens = 1.0 / (fuse.ϕtens * fuse.S1max)
+    S1_sat = clamp_smooth(S1, 0.0, fuse.S1max, fuse.ω) / fuse.S1max
+    dS1_sat = dclamp_smooth(S1, 0.0, fuse.S1max, fuse.ω) / fuse.S1max
+    act = sigmoid_activation(S1, fuse.S1max, fuse.ω)
+    dact = dsigmoid_activation(S1, fuse.S1max, fuse.ω)
 
     # Apply chain rule and product rule as needed.
     # Use safepow to avoid exponentiation of 0^(negative number)
-    de1 = PET * min(S⁺, 1.0) * dS⁺
-    dq12 = fuse.c * fuse.ku * safepow(sf, fuse.c - 1) * dsf
-    qsx = p * (1 - (1 - sf)^fuse.b)
-    dqsx = p * fuse.b * safepow(1 - sf, fuse.b - 1) * dsf
+    de1 = PET * dmin_smooth(S1_sat_tens, 1.0, FUSE_RHO) * dS1_sat_tens
+    dq12 = fuse.c * fuse.ku * safepow(S1_sat, fuse.c - 1) * dS1_sat
+    qsx = p * (1 - (1 - S1_sat)^fuse.b)
+    dqsx = p * fuse.b * safepow(1 - S1_sat, fuse.b - 1) * dS1_sat
     dqufof = -dqsx * act + (p - qsx) * dact
-    dqb = -fuse.v
+    dqb = fuse.v
 
     # Fill terms in the Jacobian
     J[1, 1] = -de1 - dq12 - dqsx - dqufof
     J[1, 2] = 0.0
     J[2, 1] = dq12
-    J[2, 2] = dqb - 1.0
+    J[2, 2] = -dqb
     return
-end
-
-
-function jacobian!(J, state::Fuse070State, fuse::Fuse070Parameters, Δt)
-    dwaterbalance!(J, state.S, fuse)
-    J[1, 1] -= 1.0 / Δt
-    J[2, 2] -= 1.0 / Δt
-    return
-end
-
-# Wrapped for DifferentialEquations.jl
-
-function waterbalance!(du, u, p::DiffEqParams{Fuse070Parameters}, t)
-    e, q = waterbalance!(du, u, p.parameters)
-    du[end-1] = e
-    du[end] = q
-    return
-end
-
-function dwaterbalance!(J, S, p::DiffEqParams{Fuse070Parameters}, t)
-    dwaterbalance!(J, S, p)
-    return
-end
-
-function isoutofdomain(u, p::DiffEqParams{Fuse070Parameters}, t)::Bool
-    S = @view u[1:2]
-    return any(value < 0 for value in S)
 end

@@ -31,6 +31,12 @@ function specific_moisture_capacity(ψ, hsc::SplineConstitutive)
     return DataInterpolations.derivative(hsc.θ, ψ, 1)
 end
 
+# TODO: This is hack. See: https://github.com/SciML/DataInterpolations.jl/issues/448
+# https://adrianhill.de/SparseConnectivityTracer.jl/stable/internals/adding_overloads/
+function specific_moisture_capacity(ψ::AbstractTracer, hsc::SplineConstitutive)
+    return ψ
+end
+
 function logknots(ψmin, ψe, offset, nknots)
     # Use log-spaced interpolation points.
     # Approach saturation at ψe, but not quite.

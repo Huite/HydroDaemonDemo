@@ -46,22 +46,6 @@ function converged(newton::NewtonSolver, state)
     )
 end
 
-function solve!(newton::NewtonSolver{LS,R}, state, parameters, Δt) where {LS,R}
-    # Maintain old state for time stepping.
-    copy_state!(state, parameters)
-    # Compute initial residual
-    residual!(newton.linearsolver.rhs, state, parameters, Δt)
-
-    for i = 1:newton.maxiter
-        # Check the residual immediately for convergence.
-        if converged(newton, primary(state))
-            return true, i
-        end
-        jacobian!(newton.linearsolver.J, state, parameters, Δt)
-        linearsolve!(newton.linearsolver)
-        # The newton step will update the state, synchronize, and recompute
-        # residual.
-        newton_step!(newton.relax, newton.linearsolver, state, parameters, Δt)
-    end
-    return false, newton.maxiter
+function setmatrix!(newton::NewtonSolver, state, parameters, Δt)
+    jacobian!(newton.linearsolver.J, state, parameters, Δt)
 end
