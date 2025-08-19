@@ -19,8 +19,8 @@ function waterbalance!(dS, S, fuse::Fuse550Parameters)
     qsx = p * S1_sat_tens * Acmax
 
     # Evaporation
-    e1 = PET * r1 * dmin_smooth(S1_sat_tens, 1.0, FUSE_RHO)
-    e2 = PET * r2 * dmin_smooth(S2_sat_tens, 1.0, FUSE_RHO)
+    e1 = PET * r1 * min_smooth(S1_sat_tens, 1.0, FUSE_RHO)
+    e2 = PET * r2 * min_smooth(S2_sat_tens, 1.0, FUSE_RHO)
 
     # Drainage
     q12 = ku * S1_sat^c
@@ -37,5 +37,5 @@ function waterbalance!(dS, S, fuse::Fuse550Parameters)
 
     dS[1] = p - qsx - e1 - q12 - qif - qufof
     dS[2] = q12 - e2 - qb - qsfof
-    return e1 + e2, qsx + qif + qufof + qb + qsfof
+    return q12, qsx + qif + qufof + qb + qsfof
 end

@@ -40,7 +40,6 @@ function timestep!(model::ExplicitHydrologicalModel, Δt)
     state = model.state
     parameters = model.parameters
     Δt = compute_timestep_size(model.timestepper, model.state, model.parameters, Δt)
-    # TODO: save necessary flows in explicit timestep!
     explicit_timestep!(state, parameters, Δt)
     return Δt
 end

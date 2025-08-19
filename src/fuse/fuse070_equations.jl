@@ -17,7 +17,7 @@ function waterbalance!(dS, S, fuse::Fuse070Parameters)
     qsx = p * (1 - (1 - S1_sat)^fuse.b)
 
     # Evaporation
-    e1 = PET * dmin_smooth(S1_sat_tens, 1.0, FUSE_RHO)
+    e1 = PET * min_smooth(S1_sat_tens, 1.0, FUSE_RHO)
 
     # Drainage
     q12 = fuse.ku * S1_sat^fuse.c
@@ -30,8 +30,9 @@ function waterbalance!(dS, S, fuse::Fuse070Parameters)
 
     dS[1] = p - qsx - e1 - q12 - qufof
     dS[2] = q12 - qb
-    return e1, qsx + qufof + qb
+    return q12, qsx + qufof + qb
 end
+
 
 function dwaterbalance!(J, S, fuse::Fuse070Parameters)
     p = fuse.currentforcing[1]

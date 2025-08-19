@@ -10,11 +10,13 @@ struct Fuse070Parameters <: FuseParameters
     c::Float64
     v::Float64
     ω::Float64
+    n::Int
     forcing::MeteorologicalForcing
     currentforcing::Vector{Float64}
     function Fuse070Parameters(; ϕtens, S1max, b, ku, c, v, forcing)
         ω = S1max * FUSE_RHO  # ρ from FUSE paper
-        new(ϕtens, S1max, b, ku, c, v, ω, forcing, zeros(2))
+        nstate = 2
+        new(ϕtens, S1max, b, ku, c, v, ω, nstate, forcing, zeros(2))
     end
 end
 
@@ -65,6 +67,14 @@ function primary(state::FuseState)
     return state.S
 end
 
+function compute_savedflows!(state::FuseState, parameters::FuseParameters, Δt)
+    # Compute flows based on the current solution.
+    q1, q2 = waterbalance!(state.dS, state.S, parameters)
+    state.flows[1] += Δt * q1
+    state.flows[2] += Δt * q2
+    return
+end
+
 function prepare_state(_::FuseParameters, initial)
     return FuseState(copy(initial), zero(initial), copy(initial), zeros(2))
 end
@@ -86,7 +96,20 @@ end
 
 function explicit_timestep!(state::FuseState, fuse::FuseParameters, Δt)
     (; dS, S) = state
-    waterbalance!(dS, S, fuse)
+    q1, q2 = waterbalance!(dS, S, fuse)
+    S1 = S[1]
+    S2 = S[2]
+    ΔS1 = Δt * dS[1]
+    ΔS2 = Δt * dS[2]
+    # Check if steps results in negative storage and compute the necessary factor
+    # to proportionally reduce outflows. q12 depends on S1 only.
+    f1 = ((-ΔS1 > S1 + 1e-9) ? S1 / abs(ΔS1) : 1.0)
+    f2 = ((-ΔS2 > S2 + 1e-9) ? S2 / abs(ΔS2) : 1.0)
+    state.flows[1] += f1 * Δt * q1
+    # Note: exact mass conservation requires scaling outflows consistently per term by S1, S2.
+    # Omitted for simplicity.
+    fmin = min(f1, f2)
+    state.flows[2] += fmin * Δt * q2
     @. state.S += state.dS * Δt
     @. state.S = max(state.S, 0)
     return
@@ -108,10 +131,11 @@ end
 # Wrapped for DifferentialEquations.jl
 
 function waterbalance!(du, u, p::DiffEqParams{F}, t) where {F<:FuseParameters}
+    dS = @view du[1:2]
     S = @view u[1:2]
-    e, q = waterbalance!(du, u, p.parameters)
-    du[end-1] = e
-    du[end] = q
+    q1, q2 = waterbalance!(dS, S, p.parameters)
+    du[end-1] = q1
+    du[end] = q2
     return
 end
 

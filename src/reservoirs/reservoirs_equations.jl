@@ -90,16 +90,18 @@ function waterbalance!(dS, S, parameters::BucketCascade)
         )
         q_upstream = q_downstream
     end
-    return
+    return 0.0, q_downstream
 end
 
 # Explicit method
 
 function explicit_timestep!(state::CascadeState, parameters::BucketCascade, Δt)
     (; dS, S) = state
-    waterbalance!(dS, S, parameters)
+    q1, q2 = waterbalance!(dS, S, parameters)
     @. state.S += state.dS * Δt
     @. state.S = max(state.S, 0)
+    state.flows[1] += Δt * q1
+    state.flows[2] += Δt * q2
     return
 end
 

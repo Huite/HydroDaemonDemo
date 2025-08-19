@@ -30,14 +30,14 @@ function dactivation(S, Smax)
     return 0.0
 end
 
-# e is ϵ from FUSE paper, fixed at 5
-function sigmoid_activation(S, Smax, ω; e = 5)
-    return 1 - 1 / (1 + exp((S - Smax - 5*e) / ω))
+function sigmoid_activation(S, Smax, ω)
+    # ϵ from FUSE paper, fixed at 5
+    return 1 / (1 + exp(-(S - Smax - 5*ω)/ω))
 end
 
-function dsigmoid_activation(S, Smax, ω; e = 5)
-    exp_term = exp((S - Smax - 5*e) / ω)
-    return exp_term / (ω * (1 + exp_term)^2)
+function dsigmoid_activation(S, Smax, ω)
+    a = sigmoid_activation(S, Smax, ω)
+    return a*(1 - a)/ω
 end
 
 # Note: hypot is numerically more stable than √((a - b)^2 + m)

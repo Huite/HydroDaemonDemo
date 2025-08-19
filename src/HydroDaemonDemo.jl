@@ -1,16 +1,20 @@
 module HydroDaemonDemo
 
+using Glob
 using Revise
 using LinearAlgebra
 using DifferentialEquations
 # Bencharmking
 using BenchmarkTools
-# For some basic IO
+# For some basic IO and utilities
 using CSV
 using DataFrames
 using Dates
+using Statistics
+# Jacobians, etc.
 using SparseArrays
 using SparseConnectivityTracer: AbstractTracer, TracerSparsityDetector, jacobian_sparsity
+# C2 continuous interpolations
 import DataInterpolations
 
 # Provide a CustomController
@@ -35,6 +39,7 @@ include("forcing.jl")
 include("model/model_explicit.jl")
 include("model/model_implicit.jl")
 include("model/model_diffeq.jl")
+include("model/custom_controller.jl")
 include("model/model.jl")
 
 # Cascade of bucket reservoirs
@@ -42,7 +47,7 @@ include("reservoirs/reservoirs_parameters.jl")
 include("reservoirs/reservoirs_state.jl")
 include("reservoirs/reservoirs_equations.jl")
 
-# FUSE-070 conceptual model
+# FUSE conceptual models
 include("fuse/fuse.jl")
 include("fuse/fuse070_equations.jl")
 include("fuse/fuse550_equations.jl")
@@ -56,6 +61,7 @@ include("richards/richards_state.jl")
 include("richards/richards_equations.jl")
 
 # Case utilities
+include("case_helpers/fuse_case_helpers.jl")
 include("case_helpers/richards_case_helpers.jl")
 
 end
