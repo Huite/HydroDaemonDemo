@@ -1,4 +1,4 @@
-import HzsydroDaemonDemo as HDD
+import HydroDaemonDemo as HDD
 using DifferentialEquations
 using Sundials
 using DataFrames
