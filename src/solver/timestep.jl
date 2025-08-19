@@ -20,7 +20,7 @@ function compute_timestep_size(
     return timestepper.Δt0
 end
 
-@kwdef struct AdaptiveTimeStepper <: TimeStepper
+struct AdaptiveTimeStepper <: TimeStepper
     Δt0::Float64
     n_increase::Int
     increase::Float64
