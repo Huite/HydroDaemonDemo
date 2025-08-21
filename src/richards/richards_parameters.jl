@@ -102,9 +102,7 @@ function prepare_problem(
     u0 = zeros(nunknown)
     θ0 = moisture_content.(initial, parameters.constitutive)
     @views u0[1:nstate] .= initial
-    dz = parameters.Δz
-    @views u0[(nstate+1):(nstate*2)] .=
-        dz .* (θ0 .+ elastic_storage.(initial, parameters.constitutive))
+    @views u0[(nstate+1):(nstate*2)] .= θ0
     params = DiffEqParams(parameters, savedresults)
     problem = ODEProblem(f, u0, tspan, params)
     return problem

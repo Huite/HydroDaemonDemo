@@ -74,11 +74,9 @@ function diffeq_model(case::RichardsCase, solverconfig, saveat)
 end
 
 function diffeq_model_dae(case::RichardsCase, solverconfig, saveat)
-    θ0 = moisture_content.(case.ψ0, case.parameters.constitutive)
-    u0 = [case.ψ0; θ0]
     return DiffEqHydrologicalModel(
         RichardsParametersDAE(case.parameters),
-        u0,
+        case.ψ0,
         case.tspan,
         saveat,
         solverconfig,
@@ -156,9 +154,9 @@ end
 
 
 @kwdef struct ImplicitSolverPreset{T}
-    abstol::Float64
-    reltol::Float64
-    relax::Float64
+    abstol::Float64=1e-6
+    reltol::Float64=1e-6
+    relax::Float64=0.0
     timestepper::T
 end
 

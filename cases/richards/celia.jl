@@ -46,7 +46,7 @@ function run(case, solver_presets)
             rows,
             (
                 solver = name,
-                time = minimum(result.trial).time / 1e9,
+                time = minimum(result.trial).time / 1e6,  # ms gives reasonable numbers.
                 mass_bias = result.mass_bias,
                 mass_rmse = result.mass_rsme,
             ),
@@ -59,19 +59,19 @@ end
 
 celia = create_celia()
 solver_presets = (
-    #HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(0.1)),
-    #HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(1.0)),
-    #HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(10.0)),
-    #HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(30.0)),
-    #HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(120.0)),
+    HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(0.1)),
+    HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(1.0)),
+    HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(10.0)),
+    HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(30.0)),
+    HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(120.0)),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler())),
-    #HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler())),
+    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler())),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
-    #HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
+    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
 )
 
 df, results = run(celia, solver_presets)
-CSV.write("cases/richards/celia.csv", df)
+CSV.write("cases/output/celia.csv", df)
 
 
 function plothead(case, solver_presets, results)
@@ -93,5 +93,4 @@ function plothead(case, solver_presets, results)
 end
 
 plothead(celia, solver_presets, results)
-savefig("cases/richards/celia.png")
-savefig("cases/richards/celia.svg")
+savefig("cases/output/celia.pdf")
