@@ -31,8 +31,7 @@ function dactivation(S, Smax)
 end
 
 function sigmoid_activation(S, Smax, ω)
-    # ϵ from FUSE paper, fixed at 5
-    return 1 / (1 + exp(-(S - Smax - 5*ω)/ω))
+    return 1 / (1 + exp(-(S - (Smax - 5*ω))/ω))
 end
 
 function dsigmoid_activation(S, Smax, ω)

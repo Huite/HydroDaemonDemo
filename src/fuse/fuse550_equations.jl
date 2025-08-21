@@ -39,3 +39,14 @@ function waterbalance!(dS, S, fuse::Fuse550Parameters)
     dS[2] = q12 - e2 - qb - qsfof
     return q12, qsx + qif + qufof + qb + qsfof
 end
+
+function handle_excess!(state::FuseState, fuse::Fuse550Parameters)
+    (; S, flows) = state
+    excess1 = max(0, S[1] - fuse.S1max)
+    S[1] -= excess1
+    excess2 = max(0, S[2] - fuse.S2max)
+    S[2] -= excess2
+    # Add total excess to outflow
+    flows[2] += excess1 + excess2
+    return
+end

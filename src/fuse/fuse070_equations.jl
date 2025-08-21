@@ -63,3 +63,12 @@ function dwaterbalance!(J, S, fuse::Fuse070Parameters)
     J[2, 2] = -dqb
     return
 end
+
+function handle_excess!(state::FuseState, fuse::Fuse070Parameters)
+    (; S, flows) = state
+    excess1 = max(0, S[1] - fuse.S1max)
+    S[1] -= excess1
+    # Add total excess to outflow
+    flows[2] += excess1
+    return
+end

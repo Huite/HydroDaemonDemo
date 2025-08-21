@@ -94,24 +94,33 @@ function rewind!(state::FuseState)
     return
 end
 
-function explicit_timestep!(state::FuseState, fuse::FuseParameters, Δt)
+function scaling_factor(ΔS, S)
+    return ((-ΔS > S + 1e-9) ? S / abs(ΔS) : 1.0)
+end
+
+function scale_flows(state::FuseState, fuse::FuseParameters, q1, q2, Δt)
+    # Make flows smaller such that they do not exceed available storage.
     (; dS, S) = state
-    q1, q2 = waterbalance!(dS, S, fuse)
-    S1 = S[1]
-    S2 = S[2]
     ΔS1 = Δt * dS[1]
     ΔS2 = Δt * dS[2]
     # Check if steps results in negative storage and compute the necessary factor
     # to proportionally reduce outflows. q12 depends on S1 only.
-    f1 = ((-ΔS1 > S1 + 1e-9) ? S1 / abs(ΔS1) : 1.0)
-    f2 = ((-ΔS2 > S2 + 1e-9) ? S2 / abs(ΔS2) : 1.0)
-    state.flows[1] += f1 * Δt * q1
     # Note: exact mass conservation requires scaling outflows consistently per term by S1, S2.
-    # Omitted for simplicity.
-    fmin = min(f1, f2)
-    state.flows[2] += fmin * Δt * q2
-    @. state.S += state.dS * Δt
-    @. state.S = max(state.S, 0)
+    # FUSE does so; omitted here for simplicity.
+    f1 = scaling_factor(ΔS1, S[1])
+    f2 = scaling_factor(ΔS2, S[2])
+    return f1 * q1, min(f1, f2) * q2
+end
+
+function explicit_timestep!(state::FuseState, fuse::FuseParameters, Δt)
+    (; dS, S, flows) = state
+    q1, q2 = waterbalance!(dS, S, fuse)
+    q1, q2 = scale_flows(state, fuse, q1, q2, Δt)
+    flows[1] += q1 * Δt
+    flows[2] += q2 * Δt
+    @. S += dS * Δt
+    @. S = max(S, 0)  # Avoids negative storage.
+    handle_excess!(state, fuse)  # Avoids S > Smax; dispatches on FUSE concept.
     return
 end
 

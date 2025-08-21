@@ -29,7 +29,6 @@ end
 function reset!(p::Parameters, u0, initial)
     u0 .= 0.0
     @views u0[1:length(initial)] .= initial
-    @show u0
     return
 end
 
