@@ -65,7 +65,9 @@ function Base.show(io::IO, solver::LinearSolverLU)
 end
 
 function linearsolve!(solver::LinearSolverLU)
-    # TODO: seems like this allocates
+    # Note: This allocates since it still allocates the workspace.
+    # See: https://github.com/DynareJulia/FastLapackInterface.jl
+    # Or just use: https://docs.sciml.ai/LinearSolve/stable/
     lu!(solver.F, solver.J)
     # Inplace for Tridiagonal since Julia 1.11.
     # Note: stores result in B, overwrites diagonals.
