@@ -9,15 +9,30 @@ struct Fuse070Parameters <: FuseParameters
     ku::Float64
     c::Float64
     v::Float64
+    μτ::Float64
     ω::Float64
     n::Int
     forcing::MeteorologicalForcing
     currentforcing::Vector{Float64}
-    function Fuse070Parameters(; ϕtens, S1max, b, ku, c, v, forcing)
+    function Fuse070Parameters(; ϕtens, S1max, b, ku, c, v, μτ, forcing)
         ω = S1max * FUSE_RHO  # ρ from FUSE paper
         nstate = 2
-        new(ϕtens, S1max, b, ku, c, v, ω, nstate, forcing, zeros(2))
+        new(ϕtens, S1max, b, ku, c, v, μτ, ω, nstate, forcing, zeros(2))
     end
+end
+
+function Base.show(io::IO, p::Fuse070Parameters)
+    println(io, "Fuse070Parameters:")
+    println(io, "  ϕtens: $(p.ϕtens)")
+    println(io, "  S1max: $(p.S1max)")
+    println(io, "  b: $(p.b)")
+    println(io, "  ku: $(p.ku)")
+    println(io, "  c: $(p.c)")
+    println(io, "  v: $(p.v)")
+    println(io, "  ω: $(p.ω)")
+    println(io, "  n: $(p.n)")
+    println(io, "  forcing: $(typeof(p.forcing))")
+    print(io, "  currentforcing: $(length(p.currentforcing))-element Vector{Float64}")
 end
 
 struct Fuse550Parameters <: FuseParameters

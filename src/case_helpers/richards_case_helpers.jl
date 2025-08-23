@@ -108,8 +108,8 @@ function waterbalance(model::DiffEqHydrologicalModel)
     return DataFrame(
         :t => model.saveat,
         :storage => sum.(S),
-        :qbot => model.saved[end-1, :] * 1e9,
-        :qtop => model.saved[end, :] * 1e9,
+        :qbot => model.saved[end-1, :],
+        :qtop => model.saved[end, :],
     )
 end
 
@@ -130,33 +130,42 @@ end
 
 struct BenchMarkResult{M}
     model::M
-    trial::BenchmarkTools.Trial
+    #    trial::BenchmarkTools.Trial
+    time::Float64
     waterbalance::DataFrame
     mass_bias::Float64
     mass_rsme::Float64
 end
 
 function benchmark_model!(model, case::RichardsCase)
-    trial = @benchmark reset_and_run!($model, $(case.ψ0))
+    # trial = @benchmark reset_and_run!($model, $(case.ψ0))
+    time = @elapsed reset_and_run!(model, case.ψ0)
     wb = waterbalance(model)
-    return BenchMarkResult(model, trial, wb, massbalance_bias(wb), massbalance_rmse(wb))
+    return BenchMarkResult(model, time, wb, massbalance_bias(wb), massbalance_rmse(wb))
 end
 
 function Base.show(io::IO, result::BenchMarkResult)
     println(io, "BenchmarkResult:")
     println(io, "  Model: $(typeof(result.model).name.name)")  # Just the type name
-    println(io, "  Time: $(BenchmarkTools.prettytime(minimum(result.trial).time))")
-    println(io, "  Memory: $(BenchmarkTools.prettymemory(minimum(result.trial).memory))")
-    println(io, "  Allocations: $(minimum(result.trial).allocs)")
+    #    println(io, "  Time: $(BenchmarkTools.prettytime(minimum(result.trial).time))")
+    println(io, "  Time: $(result.time)")
+    #    println(io, "  Memory: $(BenchmarkTools.prettymemory(minimum(result.trial).memory))")
+    #    println(io, "  Allocations: $(minimum(result.trial).allocs)")
     println(io, "  Mass Bias: $(result.mass_bias)")
     print(io, "  Mass RMSE: $(result.mass_rsme)")
 end
 
 
-@kwdef struct ImplicitSolverPreset{T}
+struct ExplicitPreset end
+
+function name(preset::ExplicitPreset)
+    return "Explicit"
+end
+
+@kwdef struct ImplicitSolverPreset{T,R}
     abstol::Float64=1e-6
     reltol::Float64=1e-6
-    relax::Float64=0.0
+    relax::R=ScalarRelaxation(0.0)
     timestepper::T
 end
 
@@ -185,7 +194,7 @@ end
 function benchmark!(case::RichardsCase, preset::ImplicitSolverPreset)
     implicit_solver = NewtonSolver(
         LinearSolverThomas(case.parameters.n),
-        relax = ScalarRelaxation(preset.relax),
+        relax = preset.relax,
         abstol = preset.abstol,
         reltol = preset.reltol,
     )

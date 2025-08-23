@@ -54,7 +54,8 @@ function run(case, solver_presets)
             rows,
             (
                 solver = HDD.name(preset),
-                time = minimum(result.trial).time / 1e9,
+                #time = minimum(result.trial).time / 1e9,
+                time = result.time,
                 mass_bias = result.mass_bias,
                 mass_rmse = result.mass_rsme,
             ),
@@ -68,26 +69,14 @@ forcingdf, forcing = read_forcing("data/infiltration.dat")
 infiltration = create_infiltration(forcing)
 solver_presets = (
     HDD.ImplicitSolverPreset(
-        relax = 0.0,
+        relax = HDD.ScalarRelaxation(0.0),
         abstol = 1e-6,
         reltol = 1e-6,
-        timestepper = HDD.AdaptiveTimeStepper(1.0),
+        timestepper = HDD.AdaptiveTimeStepper(Δt0 = 1.0),
     ),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
     HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = CVODE_BDF(jac_upper = 1, jac_lower = 1))),
-    HDD.DiffEqSolverPreset(
-        HDD.SolverConfig(
-            alg = ImplicitEuler(),
-            controller = HDD.CustomController(dtmin = 1e-9),
-        ),
-    ),
-    HDD.DAEDiffEqSolverPreset(
-        HDD.SolverConfig(
-            alg = ImplicitEuler(),
-            controller = HDD.CustomController(dtmin = 1e-9),
-        ),
-    ),
 )
 
 df, results = run(infiltration, solver_presets)

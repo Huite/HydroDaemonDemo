@@ -4,7 +4,14 @@ using Plots
 using DifferentialEquations
 
 
-function multi_pane_plot(forcingdf, explicit_fuse, implicit_fuse, implicit_fuse_fine, diffeq_fuse, window)
+function multi_pane_plot(
+    forcingdf,
+    explicit_fuse,
+    implicit_fuse,
+    implicit_fuse_fine,
+    diffeq_fuse,
+    window,
+)
     function flows(model, index)
         # Savedflows contain the time-integrated flows.
         return diff(model.savedflows[index, :])
@@ -26,7 +33,7 @@ function multi_pane_plot(forcingdf, explicit_fuse, implicit_fuse, implicit_fuse_
         xticks = (tick_positions, tick_labels),
     )
 
-    output_t = forcingdf.Date + Dates.Day(1)
+    output_t = forcingdf.Date
     start = findfirst(output_t .> window.start)
     finish = findlast(output_t .<= window.finish)
     t = output_t[start:finish]
@@ -40,7 +47,12 @@ function multi_pane_plot(forcingdf, explicit_fuse, implicit_fuse, implicit_fuse_
         label = "Explicit Euler, Δt=1.0",
     )
     plot!(p2, t, implicit_fuse.saved[1, start:finish]; label = "Implicit Euler, Δt=1.0")
-    plot!(p2, t, implicit_fuse_fine.saved[1, start:finish]; label = "Implicit Euler, Δt=1e-3")
+    plot!(
+        p2,
+        t,
+        implicit_fuse_fine.saved[1, start:finish];
+        label = "Implicit Euler, Δt=1e-3",
+    )
     plot!(p2, t, diffeq_fuse.saved[1, start:finish], label = "DifferentialEquations.jl")
 
     p3 = plot(
@@ -52,7 +64,12 @@ function multi_pane_plot(forcingdf, explicit_fuse, implicit_fuse, implicit_fuse_
         label = "Explicit Euler, Δt=1.0",
     )
     plot!(p3, t, flows(implicit_fuse, 1)[start:finish]; label = "Implicit Euler, Δt=1.0")
-    plot!(p3, t, flows(implicit_fuse_fine, 1)[start:finish]; label = "Implicit Euler, Δt=1e-3")
+    plot!(
+        p3,
+        t,
+        flows(implicit_fuse_fine, 1)[start:finish];
+        label = "Implicit Euler, Δt=1e-3",
+    )
     plot!(p3, t, flows(diffeq_fuse, 1)[start:finish], label = "DiffEq-Tsit5")
     result = plot(p1, p2, p3, layout = (3, 1), size = (1000, 750), margin = 5Plots.mm)
     return result
@@ -61,7 +78,7 @@ end
 
 forcingdf = HDD.create_mahurangi_forcingdf(
     "data/mahurangi/*daily rainfall.csv",
-#    "data/1340__Evaporation__daily/1340__Evaporation__Priestly-Taylor-PET__daily.csv",
+    #    "data/1340__Evaporation__daily/1340__Evaporation__Priestly-Taylor-PET__daily.csv",
     "data/1340__Evaporation__daily/1340__Evaporation__Penman-Open-Water-Evaporation__daily.csv",
 )
 
@@ -80,6 +97,7 @@ fuse = HDD.Fuse070Parameters(
     ku = 500.0,     # mm/d
     c = 10,         # 
     v = 0.1,        # 1/d
+    μτ = 0.6,       # d
     forcing = forcing,
 )
 initial = zeros(2)
@@ -127,5 +145,21 @@ diffeq_fuse = HDD.DiffEqHydrologicalModel(fuse, initial, tspan, nothing, solverc
 HDD.run!(diffeq_fuse)
 
 window = (start = Date(1998, 6, 1), finish = Date(1998, 8, 31))
-multi_pane_plot(forcingdf, explicit_fuse, implicit_fuse, implicit_fuse_fine, diffeq_fuse, window)
+multi_pane_plot(
+    forcingdf,
+    explicit_fuse,
+    implicit_fuse,
+    implicit_fuse_fine,
+    diffeq_fuse,
+    window,
+)
 savefig(figpath)
+
+streamflow = HDD.read_mahurangi_streamflow("data/Mahurangi/6806 mean daily flows.csv")
+mask = (window.start .<= streamflow.Date .<= window.finish)
+
+modelq = diff(diffeq_fuse.savedflows[2, :])[mask]
+routedq = HDD.route_flows(modelq, 0.6)
+plot(streamflow.Date[mask], streamflow.discharge[mask])
+plot!(streamflow.Date[mask], modelq)
+plot!(streamflow.Date[mask], routedq)

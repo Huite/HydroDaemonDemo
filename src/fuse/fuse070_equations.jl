@@ -1,3 +1,7 @@
+# Uses safepow to avoid:
+# - complex roots (e.g. -1^0.5) 
+# - infinities (e.g. 0^-1)
+
 function waterbalance!(dS, S, fuse::Fuse070Parameters)
     p = fuse.currentforcing[1]
     PET = fuse.currentforcing[2]
@@ -5,22 +9,20 @@ function waterbalance!(dS, S, fuse::Fuse070Parameters)
     S1 = S[1]
     S2 = S[2]
 
-    # Compuate saturation variables
+    # Compute saturation variables
     # saturation of tension storage may be > 1.0 ("super-saturation")
     S1_sat_tens = S1 / (fuse.ϕtens * fuse.S1max)
-    # Ensure saturation is [0.0 - 1.0], since exponentiation of a negative
-    # number results in a domain error (requires complex numbers).
-    S1_sat = clamp_smooth(S1, 0.0, fuse.S1max, fuse.ω) / fuse.S1max
+    S1_sat = S1 / fuse.S1max
     act = sigmoid_activation(S1, fuse.S1max, fuse.ω)
 
     # Runoff
-    qsx = p * (1 - (1 - S1_sat)^fuse.b)
+    qsx = p * (1 - safepow(1 - S1_sat, fuse.b))
 
     # Evaporation
     e1 = PET * min_smooth(S1_sat_tens, 1.0, FUSE_RHO)
 
     # Drainage
-    q12 = fuse.ku * S1_sat^fuse.c
+    q12 = fuse.ku * safepow(S1_sat, fuse.c)
 
     # Baseflow
     qb = fuse.v * S2
@@ -33,7 +35,6 @@ function waterbalance!(dS, S, fuse::Fuse070Parameters)
     return q12, qsx + qufof + qb
 end
 
-
 function dwaterbalance!(J, S, fuse::Fuse070Parameters)
     p = fuse.currentforcing[1]
     PET = fuse.currentforcing[2]
@@ -42,17 +43,16 @@ function dwaterbalance!(J, S, fuse::Fuse070Parameters)
     # Compute the terms and their derivatives.
     S1_sat_tens = S1 / (fuse.ϕtens * fuse.S1max)
     dS1_sat_tens = 1.0 / (fuse.ϕtens * fuse.S1max)
-    S1_sat = clamp_smooth(S1, 0.0, fuse.S1max, fuse.ω) / fuse.S1max
-    dS1_sat = dclamp_smooth(S1, 0.0, fuse.S1max, fuse.ω) / fuse.S1max
+    S1_sat = S1 / fuse.S1max
+    dS1_sat = 1.0 / fuse.S1max
     act = sigmoid_activation(S1, fuse.S1max, fuse.ω)
     dact = dsigmoid_activation(S1, fuse.S1max, fuse.ω)
 
     # Apply chain rule and product rule as needed.
-    # Use safepow to avoid exponentiation of 0^(negative number)
     de1 = PET * dmin_smooth(S1_sat_tens, 1.0, FUSE_RHO) * dS1_sat_tens
     dq12 = fuse.c * fuse.ku * safepow(S1_sat, fuse.c - 1) * dS1_sat
-    qsx = p * (1 - (1 - S1_sat)^fuse.b)
-    dqsx = p * fuse.b * safepow(1 - S1_sat, fuse.b - 1) * dS1_sat
+    qsx = p * (1 - safepow(1 - S1_sat, fuse.b))
+    dqsx = p * fuse.b * safepow(1 - S1_sat, fuse.b - 1) * (-dS1_sat)
     dqufof = -dqsx * act + (p - qsx) * dact
     dqb = fuse.v
 

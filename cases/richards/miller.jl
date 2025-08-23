@@ -98,7 +98,8 @@ function run(cases, solver_presets)
                 (
                     soil = string(soil),
                     solver = HDD.name(preset),
-                    time = minimum(result.trial).time / 1e9,
+                    #                    time = minimum(result.trial).time / 1e6,  # ms gives reasonable numbers.
+                    time = result.time,
                     mass_bias = result.mass_bias,
                     mass_rmse = result.mass_rsme,
                 ),
@@ -112,15 +113,21 @@ end
 
 solver_presets = (
     HDD.ImplicitSolverPreset(
-        relax = 0.0,
+        relax = HDD.ScalarRelaxation(0.0),
         abstol = 1e-6,
         reltol = 1e-6,
-        timestepper = HDD.AdaptiveTimeStepper(0.01),
+        timestepper = HDD.AdaptiveTimeStepper(Δt0 = 0.01),
+    ),
+    HDD.ImplicitSolverPreset(
+        relax = HDD.SimpleLineSearch(),
+        abstol = 1e-6,
+        reltol = 1e-6,
+        timestepper = HDD.AdaptiveTimeStepper(Δt0 = 0.0001, Δtmax = 0.0001),
     ),
     #    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler(), maxiters = 500_000)),
     #    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler(), maxiters = 500_000)),
-    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(), maxiters = 200_000)),
-    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(), maxiters = 200_000)),
+    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(), maxiters = 199_000)),
+    #    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(), maxiters = 200_000)),
     #    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = FBDF(), maxiters = 200_000)),
     #    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = FBDF(), maxiters = 500_000)),  # 2e5 not enough
     #    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QBDF(), maxiters = 200_000)),
@@ -159,4 +166,51 @@ function plotresult(cases, solver_presets, results)
 end
 
 plotresult(cases, solver_presets, results)
-savefig("cases/richards/miller.svg")
+savefig("cases/output/miller-head-singlepane.png")
+
+
+function plotresult(cases, solver_presets, results)
+    # Create a 1x3 subplot layout
+    p = plot(layout = (1, 3), size = (1200, 400), margin = 5Plots.mm)
+
+    # Get soil names for indexing
+    soil_names = collect(keys(cases))
+
+    # Create a subplot for each soil type
+    for (soil_idx, soil) in enumerate(soil_names)
+        for (preset_idx, preset) in enumerate(solver_presets)
+            # Calculate the linear index for results
+            result_idx = (soil_idx - 1) * length(solver_presets) + preset_idx
+            result = results[result_idx]
+
+            case = cases[soil]
+            n = case.parameters.n
+            Δz = case.parameters.Δz
+            z = collect(Δz:Δz:(n*Δz))
+            ψ = result.model.saved[1:n, end]
+
+            if preset_idx == 2
+                label = "Implicit Newton (Δtmax=1e-4)"
+            else
+                label = HDD.name(preset)
+            end
+            plot!(
+                p[soil_idx],  # Plot to specific subplot
+                z,
+                ψ,
+                permute = (:y, :x),
+                label = label,
+                ylabel = "Pressure head (m)",
+                xlabel = soil_idx == 1 ? "Elevation (m)" : "",
+                title = string(soil),
+                legend = soil_idx == 1 ? :topleft : false,
+            )
+        end
+    end
+
+    display(p)
+    return p
+end
+
+plotresult(cases, solver_presets, results)
+savefig("cases/output/miller-head.pdf")

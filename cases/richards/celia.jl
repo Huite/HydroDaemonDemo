@@ -14,7 +14,7 @@ function create_celia()
         ks = 0.00944,
         θs = 0.287,
         θr = 0.075,
-        Ss = 1e-6,
+        Ss = 0.0,
     )
     celia = HDD.RichardsCase(
         soil = soil,
@@ -46,7 +46,8 @@ function run(case, solver_presets)
             rows,
             (
                 solver = name,
-                time = minimum(result.trial).time / 1e6,  # ms gives reasonable numbers.
+                #                time = minimum(result.trial).time / 1e6,  # ms gives reasonable numbers.
+                time = result.time * 1000.0,  # ms gives reasonable numbers.
                 mass_bias = result.mass_bias,
                 mass_rmse = result.mass_rsme,
             ),
@@ -59,11 +60,11 @@ end
 
 celia = create_celia()
 solver_presets = (
-    HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(0.1)),
-    HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(1.0)),
-    HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(10.0)),
-    HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(30.0)),
-    HDD.ImplicitSolverPreset(timestepper=HDD.FixedTimeStepper(120.0)),
+    HDD.ImplicitSolverPreset(timestepper = HDD.FixedTimeStepper(0.1)),
+    HDD.ImplicitSolverPreset(timestepper = HDD.FixedTimeStepper(1.0)),
+    HDD.ImplicitSolverPreset(timestepper = HDD.FixedTimeStepper(10.0)),
+    HDD.ImplicitSolverPreset(timestepper = HDD.FixedTimeStepper(30.0)),
+    HDD.ImplicitSolverPreset(timestepper = HDD.FixedTimeStepper(120.0)),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler())),
     HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler())),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
@@ -72,7 +73,6 @@ solver_presets = (
 
 df, results = run(celia, solver_presets)
 CSV.write("cases/output/celia.csv", df)
-
 
 function plothead(case, solver_presets, results)
     plot()
@@ -86,11 +86,12 @@ function plothead(case, solver_presets, results)
         end
 
         ψ = result.model.saved[1:n, end]
-        plot!(ψ, label = name, xlabel = "Depth (cm)", ylabel = "Pressure head (cm)")
+        plot!(ψ, label = name, xlabel = "Elevation (cm)", ylabel = "Pressure head (cm)")
     end
     display(current())
     return
 end
 
-plothead(celia, solver_presets, results)
-savefig("cases/output/celia.pdf")
+selection = [1, 3, 4, 5, 6]
+plothead(celia, solver_presets[selection], results[selection])
+savefig("cases/output/celia-head.pdf")

@@ -160,8 +160,8 @@ This package provides three main data structures:
    forward in time discretization (explicit).
 2. `ImplicitHydrologicalModel` for a hydrological model with first-order
    backward in time discretization (implicit).
-3. `DiffEqHydrologicalModel` for a hydrological model that uses
-   `DifferentialEquations.jl` and through it supports many (higher) order
+3. `DiffEqHydrologicalModel` for a hydrological model that uses a method-of-lines (MOL)
+   approach via `DifferentialEquations.jl` and through it supports many (higher) order
    methods, explicit, implicit, and mixed formulations.
 
 ### Required methods
@@ -174,13 +174,13 @@ Defining a model requires:
   parameters and the (meteorological) forcing time series.
 * A `prepare_state` method which takes the parameters, an initial state vector, and the forcing and returns the appropriate `State` structure.
 
-`ExplicitHydrologicalModel` is the simplest and requires only a `rhs!`
+`ExplicitHydrologicalModel` is the simplest and requires only a `waterbalance!`
 function which computes the derivative `du/dt`.
 
 `ImplicitHydrologicalModel` is more involved, it requires:
 
-* `rhs!`
-* `residual!` (a wrapper around `rhs!`)
+* `waterbalance!`
+* `residual!` (a wrapper around `waterbalance!`)
 * `jacobian!`
 * `copy_state!` to store the previous state.
 * `rewind!` to reset the previous state in case of convergence failure.
@@ -188,8 +188,8 @@ function which computes the derivative `du/dt`.
 Parameters and meteorological forcing are combined in a `Parameters` struct.
 The mutable state and dependent variables are stored in a `State` struct.
 
-Finally, `DiffEqHydrologicalModel` requires `diffeq_rhs!` which is a
-trivial wrapper around `rhs!` and the parametric `DiffEqParams` type, ensuring
+Finally, `DiffEqHydrologicalModel` requires `waterbalance!` which is a
+trivial wrapper around the bare `waterbalance!` and the parametric `DiffEqParams` type, ensuring
 we dispatch on the type of hydrological model (encoded by the state and parameter structs).
 
 Minor code duplication exists in the explicit, implicit, and
@@ -214,5 +214,4 @@ Running a model requires:
 Julia is a garbage-collected languages without the need for manual memory management.
 This makes it memory safe by default and easy to write, but this has the downside that
 it's easy to slow down programs by accidental dynamic allocations and garbage collection
-cycles. The code in this repository has been carefully written to allocate only during initialization;
-while the model is running, it requires no additional memory.
+cycles. The code in this repository has been carefully written to minimize memory allocations.

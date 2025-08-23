@@ -1,3 +1,5 @@
+# TODO: replace clamping, just use safepow instead
+
 function waterbalance!(dS, S, fuse::Fuse550Parameters)
     (; ϕtens, S1max, S2max, r1, r2, ku, ki, ks, c, n, Acmax, ω, currentforcing) = fuse
     p = currentforcing[1]

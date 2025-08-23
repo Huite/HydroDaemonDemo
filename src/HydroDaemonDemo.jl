@@ -11,6 +11,7 @@ using CSV
 using DataFrames
 using Dates
 using Statistics
+using Distributions
 # Jacobians, etc.
 using SparseArrays
 using SparseConnectivityTracer: AbstractTracer, TracerSparsityDetector, jacobian_sparsity

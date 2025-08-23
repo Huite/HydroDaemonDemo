@@ -259,8 +259,8 @@ function waterbalance!(du, u, p::DiffEqParams{<:RichardsParameters}, t)
         Ss = parameters.constitutive[i].Ss
         dψ[i] *= 1.0 / (Δz * (C + Sa * Ss))
     end
-    du[end-1] = qbot * 1e-9
-    du[end] = qtop * 1e-9
+    du[end-1] = qbot
+    du[end] = qtop
     return
 end
 
@@ -286,8 +286,8 @@ function waterbalance_dae!(du, u, parameters::RichardsParametersDAE)
         # Algebraic constraint
         dθ[i] = θ[i] - moisture_content(ψ[i], parameters.constitutive[i])
     end
-    du[end-1] = qbot * 1e-9
-    du[end] = qtop * 1e-9
+    du[end-1] = qbot
+    du[end] = qtop
     return
 end
 

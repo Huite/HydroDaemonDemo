@@ -10,6 +10,10 @@ abstract type ImplicitState <: State end
 abstract type ConstitutiveRelationships end
 abstract type Fuse070 <: Parameters end
 
+function get_parameters(model::HydrologicalModel)
+    return model.parameters
+end
+
 function aqueous_saturation(ψ, C::ConstitutiveRelationships)
     return moisture_content(ψ, C) / C.θs
 end

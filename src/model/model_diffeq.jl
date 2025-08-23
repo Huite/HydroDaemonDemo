@@ -53,6 +53,10 @@ struct DiffEqHydrologicalModel{T}
     savedflows::Matrix{Float64}
 end
 
+function get_parameters(model::DiffEqHydrologicalModel)
+    return model.integrator.p.parameters
+end
+
 function save_state!(integrator)
     (; u, p) = integrator
     n = p.parameters.n
@@ -171,6 +175,8 @@ end
 # TODO: replace by BenchmarkTools set up
 function reset_and_run!(model::DiffEqHydrologicalModel, initial)
     # Wipe results
+    model.savedflows .= 0.0
+    model.saved .= 0.0
     model.integrator.p.results.saved .= 0.0
     model.integrator.p.results.save_idx = 1
     # Set initial state
