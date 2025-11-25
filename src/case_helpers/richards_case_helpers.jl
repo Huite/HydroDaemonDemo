@@ -128,7 +128,7 @@ end
 
 function benchmark_model!(model, case::RichardsCase)
     run!(model)
-    trial = @benchmark reset_and_run!($model, $(case.ψ0)) samples=5
+    trial = @benchmark reset_and_run!($model, $(case.ψ0)) samples=20
     #time = @elapsed reset_and_run!(model, case.ψ0)
     wb = waterbalance_dataframe(model)
     return BenchMarkResult(model, trial, wb, massbalance_bias(wb), massbalance_rmse(wb))
