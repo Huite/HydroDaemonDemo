@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/917578395.svg)](https://doi.org/10.5281/zenodo.17716079)
+
 # HydroDaemonDemo
 
 This repository contains the code associated with the article: "Banishing
