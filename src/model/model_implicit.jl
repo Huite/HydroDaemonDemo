@@ -28,6 +28,7 @@ function Base.show(io::IO, model::ImplicitHydrologicalModel)
     print(io, "  Output size: ", size(model.saved))
 end
 
+# [implicit]
 function ImplicitHydrologicalModel(
     parameters::Parameters,
     initial::Vector{Float64},
@@ -39,7 +40,7 @@ function ImplicitHydrologicalModel(
     state = prepare_state(parameters, initial)
     saveat = create_saveat(saveat, parameters.forcing, tspan)
     nstate = length(primary(state))
-    nsave = length(saveat) + 1
+    nsave = length(saveat)
     saved = zeros(nstate, nsave)
     savedflows = zeros(2, nsave)
     return ImplicitHydrologicalModel(
@@ -54,6 +55,7 @@ function ImplicitHydrologicalModel(
     )
 end
 
+# [implicit]
 """
 First order implicit (Euler Backward) time integration, with optional:
 
@@ -79,6 +81,7 @@ function timestep!(model::ImplicitHydrologicalModel, Δt)
     return Δt
 end
 
+# [nonlinear_solve]
 function nonlinearsolve!(nonlinearsolver, state, parameters, Δt)
     for i = 1:nonlinearsolver.maxiter
         residual!(nonlinearsolver.linearsolver.rhs, state, parameters, Δt)

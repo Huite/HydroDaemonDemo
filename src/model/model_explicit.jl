@@ -8,6 +8,7 @@ struct ExplicitHydrologicalModel{P<:Parameters,S<:State,T<:TimeStepper} <: Hydro
     timestepper::T
 end
 
+# [explicit]
 function ExplicitHydrologicalModel(
     parameters::Parameters,
     initial::Vector{Float64},
@@ -18,7 +19,7 @@ function ExplicitHydrologicalModel(
     state = prepare_state(parameters, initial)
     saveat = create_saveat(saveat, parameters.forcing, tspan)
     nstate = length(primary(state))
-    nsave = length(saveat) + 1
+    nsave = length(saveat)
     saved = zeros(nstate, nsave)
     savedflows = zeros(2, nsave)
 
@@ -33,6 +34,7 @@ function ExplicitHydrologicalModel(
     )
 end
 
+# [explicit]
 """
 First order explicit (Euler Forward) time integration.
 """

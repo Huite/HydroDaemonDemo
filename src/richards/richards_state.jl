@@ -6,11 +6,15 @@ struct RichardsState <: State
     flows::Vector{Float64}
 end
 
+# [explicit]
+# [implicit]
 """Return the primary state."""
 function primary(state::RichardsState)
     return state.ψ
 end
 
+# [explicit]
+# [implicit]
 function compute_savedflows!(state::RichardsState, parameters::RichardsParameters, Δt)
     state.flows[1] += Δt * bottomflux(state.ψ, parameters, parameters.bottomboundary)
     state.flows[2] +=
@@ -21,6 +25,7 @@ function compute_savedflows!(state::RichardsState, parameters::RichardsParameter
     return
 end
 
+# [implicit]
 function prepare_state(p::RichardsParameters, initial)
     return RichardsState(
         copy(initial),  # ψ
@@ -31,17 +36,20 @@ function prepare_state(p::RichardsParameters, initial)
     )
 end
 
+# [nonlinear_solve]
 function apply_update!(state::RichardsState, linearsolver, a)
     @. state.ψ += a * linearsolver.ϕ
     return
 end
 
+# [implicit]
 function copy_state!(state::RichardsState, parameters::RichardsParameters)
     copyto!(state.ψ_old, state.ψ)
     state.θ_old .= moisture_content.(state.ψ_old, parameters.constitutive)
     return
 end
 
+# [implicit]
 function rewind!(state::RichardsState)
     copyto!(state.ψ, state.ψ_old)
 end

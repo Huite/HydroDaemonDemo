@@ -1,9 +1,48 @@
 # HydroDaemonDemo
 
 This repository contains the code associated with the article: "Banishing
-Banishing ancient numerical daemons of conceptual hydrology: robust
-hydrological simulators with Julia, DifferentialEquations.jl, and automatic
-differentiation".
+ancient numerical daemons of conceptual hydrology", submitted for consideration
+in Water Resources Research.
+
+# Reproducing Results
+
+The `cases/` directory contains Julia scripts that reproduce all figures and tables
+from the paper. All package dependencies and versions are specified 
+in `Project.toml` and `Manifest.toml`, ensuring reproducible results.
+
+To reproduce all results, run:
+
+```console
+julia --project cases/linecount.jl
+
+julia --project cases/reservoirs-cascade.jl
+
+julia --project cases/fuse-mahurangi.jl
+julia --project cases/fuse-randomized.jl
+julia --project cases/fuse-randomized-figures.jl
+
+julia --project cases/richards-celia.jl
+julia --project cases/richards-miller.jl
+julia --project cases/richards-infiltration.jl
+julia --project cases/richards-figures.jl
+```
+
+Output figures and data will be saved to `cases/output/`.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE), see the LICENSE 
+file for details. See `data/README` for details on the data.
+
+## Citation
+
+If you use this code in your research, please cite the software:
+
+Bootsma, H. (2025). Code and analysis for "Banishing Ancient Numerical 
+Daemons of Conceptual Hydrology" (Version 1.0) [Software]. Zenodo. 
+
+The associated manuscript has been submitted for consideration at Water Resources
+Research.
 
 ## Installation
 
@@ -44,7 +83,7 @@ Generally, however, you want to edit and run scripts interactively via an
 editor. Julia works well with [VSCode](https://code.visualstudio.com/). Install
 the Julia VSCode extension.  
 
-To run an example from this repository, open ``examples/basic.jl`` and execute
+To run an example from this repository, open ``cases/reservoirs-cascade.jl`` and execute
 lines via ``Shift + Enter``. Running this example will automatically install
 all the required packages and dependencies thanks to Julia's package manager.
 
@@ -161,12 +200,12 @@ This package provides three main data structures:
 2. `ImplicitHydrologicalModel` for a hydrological model with first-order
    backward in time discretization (implicit).
 3. `DiffEqHydrologicalModel` for a hydrological model that uses a method-of-lines (MOL)
-   approach via `DifferentialEquations.jl` and through it supports many (higher) order
+   approach and `DifferentialEquations.jl` ODE solvers, and through it supports many (higher) order
    methods, explicit, implicit, and mixed formulations.
 
 ### Required methods
 
-Defining a model requires:
+Defining an `ExplicitHydrologicalModel` or `ImplicitHydrologicalModel` requires:
 
 * A `State` struct, containing the state variables,
   the time derivatives, and state-dependent variables.
@@ -194,9 +233,7 @@ we dispatch on the type of hydrological model (encoded by the state and paramete
 
 Minor code duplication exists in the explicit, implicit, and
 DifferentialEquations formulation of the right-hand-side (RHS) function of the
-differential equation. A general `rhs!` function could serve all models, but at
-some cost to readability; the current setup matches the code of most
-hydrological models which generally support only one or a few formulations.
+differential equation. 
 
 ## Running a model
 

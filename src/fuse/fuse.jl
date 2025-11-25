@@ -2,6 +2,7 @@ abstract type FuseParameters <: Parameters end
 
 const FUSE_RHO = 0.01
 
+# [core]
 struct Fuse070Parameters <: FuseParameters
     ϕtens::Float64
     S1max::Float64
@@ -71,6 +72,8 @@ struct Fuse550Parameters <: FuseParameters
     end
 end
 
+# [explicit]
+# [implicit]
 struct FuseState <: State
     S::Vector{Float64}
     dS::Vector{Float64}
@@ -78,41 +81,42 @@ struct FuseState <: State
     flows::Vector{Float64}
 end
 
+# [explicit]
+# [implicit]
 function primary(state::FuseState)
     return state.S
 end
 
-function compute_savedflows!(state::FuseState, parameters::FuseParameters, Δt)
-    # Compute flows based on the current solution.
-    q1, q2 = waterbalance!(state.dS, state.S, parameters)
-    state.flows[1] += Δt * q1
-    state.flows[2] += Δt * q2
-    return
-end
-
+# [explicit]
+# [implicit]
 function prepare_state(_::FuseParameters, initial)
     return FuseState(copy(initial), zero(initial), copy(initial), zeros(2))
 end
 
+# [implicit]
 function apply_update!(state::FuseState, linearsolver, a)
     @. state.S += a * linearsolver.ϕ
     return
 end
 
+# [implicit]
 function copy_state!(state::FuseState, _)
     copyto!(state.Sold, state.S)
     return
 end
 
+# [implicit]
 function rewind!(state::FuseState)
     copyto!(state.S, state.Sold)
     return
 end
 
+# [explicit]
 function scaling_factor(ΔS, S)
     return ((-ΔS > S + 1e-9) ? S / abs(ΔS) : 1.0)
 end
 
+# [explicit]
 function scale_flows(state::FuseState, fuse::FuseParameters, q1, q2, Δt)
     # Make flows smaller such that they do not exceed available storage.
     (; dS, S) = state
@@ -127,6 +131,7 @@ function scale_flows(state::FuseState, fuse::FuseParameters, q1, q2, Δt)
     return f1 * q1, min(f1, f2) * q2
 end
 
+# [explicit]
 function explicit_timestep!(state::FuseState, fuse::FuseParameters, Δt)
     (; dS, S, flows) = state
     q1, q2 = waterbalance!(dS, S, fuse)
@@ -139,12 +144,15 @@ function explicit_timestep!(state::FuseState, fuse::FuseParameters, Δt)
     return
 end
 
+# [implicit]
 function residual!(rhs, state::FuseState, fuse::FuseParameters, Δt)
     waterbalance!(state.dS, state.S, fuse)
     # Newton-Raphson uses the negative residual
     @. rhs = -(state.dS - (state.S - state.Sold) / Δt)
     return
 end
+
+# [jacobian]
 function jacobian!(J, state::FuseState, fuse::FuseParameters, Δt)
     dwaterbalance!(J, state.S, fuse)
     J[1, 1] -= 1.0 / Δt
@@ -153,7 +161,7 @@ function jacobian!(J, state::FuseState, fuse::FuseParameters, Δt)
 end
 
 # Wrapped for DifferentialEquations.jl
-
+# [diffeq]
 function waterbalance!(du, u, p::DiffEqParams{F}, t) where {F<:FuseParameters}
     dS = @view du[1:2]
     S = @view u[1:2]
@@ -163,6 +171,7 @@ function waterbalance!(du, u, p::DiffEqParams{F}, t) where {F<:FuseParameters}
     return
 end
 
+# [diffeq]
 function isoutofdomain(u, p::DiffEqParams{F}, t)::Bool where {F<:FuseParameters}
     S = @view u[1:2]
     return any(value < 0 for value in S)

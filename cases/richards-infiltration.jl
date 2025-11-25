@@ -54,8 +54,7 @@ function run(case, solver_presets)
             rows,
             (
                 solver = HDD.name(preset),
-                #time = minimum(result.trial).time / 1e9,
-                time = result.time,
+                time = minimum(result.trial).time / 1e9,
                 mass_bias = result.mass_bias,
                 mass_rmse = result.mass_rsme,
             ),
@@ -68,10 +67,10 @@ end
 forcingdf, forcing = read_forcing("data/infiltration.dat")
 infiltration = create_infiltration(forcing)
 solver_presets = (
-    HDD.ImplicitSolverPreset(
+    HDD.ImplicitNewtonSolverPreset(
         relax = HDD.ScalarRelaxation(0.0),
-        abstol = 1e-6,
-        reltol = 1e-6,
+        abstol = 1e-8,
+        reltol = 1e-8,
         timestepper = HDD.AdaptiveTimeStepper(Δt0 = 1.0),
     ),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
@@ -80,63 +79,20 @@ solver_presets = (
 )
 
 df, results = run(infiltration, solver_presets)
-CSV.write("cases/richards/infiltration.csv", df)
+CSV.write("cases/output/infiltration.csv", df)
 
-function plot_storage(forcingdf, case, solver_presets, results)
-    start_date = Date("2004-01-01")
-    end_date = Date("2004-12-31")
-    date_range = collect(start_date:Day(1):end_date)
-    start_index = findfirst(x -> x == start_date, forcingdf.Date)
-    end_index = findfirst(x -> x == end_date, forcingdf.Date)
-
-    plot()
-    for (preset, result) in zip(solver_presets, results)
-        plot!(
-            date_range,
-            result.waterbalance.storage[start_index:end_index],
-            label = HDD.name(preset),
-            xlabel = "Date",
-            ylabel = "Storage (m)",
-        )
-    end
-    display(current())
-    return
+dates = copy(forcingdf.Date)
+push!(dates, dates[end] + Day(1))
+storagedf = DataFrame(date = dates)
+for (preset, result) in zip(solver_presets, results)
+    storagedf[!, HDD.name(preset)] = result.waterbalance.storage
 end
 
+CSV.write("cases/output/infiltration-storage.csv", storagedf)
 
-function plot_drainage(forcingdf, case, solver_presets, results)
-    start_date = Date("2004-01-01")
-    end_date = Date("2004-12-31")
-    date_range = collect(start_date:Day(1):end_date)
-    start_index = findfirst(x -> x == start_date, forcingdf.Date)
-    end_index = findfirst(x -> x == end_date, forcingdf.Date)
-
-    plot()
-    for (preset, result) in zip(solver_presets, results)
-        plot!(
-            date_range[2:end],
-            -1.0 .* diff(result.waterbalance.qbot[start_index:end_index]),
-            label = HDD.name(preset),
-            xlabel = "Date",
-            ylabel = "Drainage (m/d)",
-        )
-    end
-    display(current())
-    return
+drainagedf = DataFrame(date = dates[2:end])
+for (preset, result) in zip(solver_presets, results)
+    drainagedf[!, HDD.name(preset)] = -1.0 .* diff(result.waterbalance.qbot)
 end
 
-
-plot_storage(forcingdf, infiltration, solver_presets, results)
-savefig("cases/richards/infiltration-storage.png")
-savefig("cases/richards/infiltration-storage.svg")
-
-
-plot_drainage(forcingdf, infiltration, solver_presets, results[1:(end-2)])
-savefig("cases/richards/infiltration-drainage.png")
-savefig("cases/richards/infiltration-drainage.svg")
-
-
-
-plot_drainage(forcingdf, infiltration, solver_presets, results)
-savefig("cases/richards/infiltration-drainage-custom.png")
-savefig("cases/richards/infiltration-drainage-custom.svg")
+CSV.write("cases/output/infiltration-drainage.csv", drainagedf)

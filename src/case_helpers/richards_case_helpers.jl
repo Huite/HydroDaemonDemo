@@ -89,27 +89,17 @@ function storage(ψ, parameters::AbstractRichards)
     return parameters.Δz * (θ + S_elastic)
 end
 
-function waterbalance(model)
-    S = [storage(ψ, model.parameters) for ψ in eachcol(model.saved)]
-    return DataFrame(
-        :t => vcat(0.0, model.saveat),
-        :storage => sum.(S),
-        :qbot => model.savedflows[1, :],
-        :qtop => model.savedflows[2, :],
-    )
-end
-
-function waterbalance(model::DiffEqHydrologicalModel)
+function waterbalance_dataframe(model)
     # Compute cumulative flows back to reporting steps.
     # One smaller (vertex vs interval): no cumulative yet flow at t=0.
-    n = model.integrator.p.parameters.n
-    S = [storage(ψ, model.integrator.p.parameters) for ψ in eachcol(model.saved[1:n, :])]
-    # TODO: Fix after DAEProblems support vector tolerances
+    parameters = get_parameters(model)
+    n = parameters.n
+    S = [storage(ψ, parameters) for ψ in eachcol(model.saved[1:n, :])]
     return DataFrame(
         :t => model.saveat,
         :storage => sum.(S),
-        :qbot => model.saved[end-1, :],
-        :qtop => model.saved[end, :],
+        :qbot => model.savedflows[1, :],
+        :qtop => model.savedflows[2, :],
     )
 end
 
@@ -130,27 +120,27 @@ end
 
 struct BenchMarkResult{M}
     model::M
-    #    trial::BenchmarkTools.Trial
-    time::Float64
+    trial::BenchmarkTools.Trial
     waterbalance::DataFrame
     mass_bias::Float64
     mass_rsme::Float64
 end
 
 function benchmark_model!(model, case::RichardsCase)
-    # trial = @benchmark reset_and_run!($model, $(case.ψ0))
-    time = @elapsed reset_and_run!(model, case.ψ0)
-    wb = waterbalance(model)
-    return BenchMarkResult(model, time, wb, massbalance_bias(wb), massbalance_rmse(wb))
+    run!(model)
+    trial = @benchmark reset_and_run!($model, $(case.ψ0)) samples=5
+    #time = @elapsed reset_and_run!(model, case.ψ0)
+    wb = waterbalance_dataframe(model)
+    return BenchMarkResult(model, trial, wb, massbalance_bias(wb), massbalance_rmse(wb))
 end
 
 function Base.show(io::IO, result::BenchMarkResult)
     println(io, "BenchmarkResult:")
     println(io, "  Model: $(typeof(result.model).name.name)")  # Just the type name
-    #    println(io, "  Time: $(BenchmarkTools.prettytime(minimum(result.trial).time))")
-    println(io, "  Time: $(result.time)")
-    #    println(io, "  Memory: $(BenchmarkTools.prettymemory(minimum(result.trial).memory))")
-    #    println(io, "  Allocations: $(minimum(result.trial).allocs)")
+    println(io, "  Time: $(BenchmarkTools.prettytime(minimum(result.trial).time))")
+    #    println(io, "  Time: $(result.time)")F
+    println(io, "  Memory: $(BenchmarkTools.prettymemory(minimum(result.trial).memory))")
+    println(io, "  Allocations: $(minimum(result.trial).allocs)")
     println(io, "  Mass Bias: $(result.mass_bias)")
     print(io, "  Mass RMSE: $(result.mass_rsme)")
 end
@@ -162,15 +152,28 @@ function name(preset::ExplicitPreset)
     return "Explicit"
 end
 
-@kwdef struct ImplicitSolverPreset{T,R}
+abstract type ImplicitSolverPreset end
+
+@kwdef struct ImplicitNewtonSolverPreset{T,R} <: ImplicitSolverPreset
     abstol::Float64=1e-6
     reltol::Float64=1e-6
     relax::R=ScalarRelaxation(0.0)
     timestepper::T
 end
 
-function name(preset::ImplicitSolverPreset)
+@kwdef struct ImplicitPicardSolverPreset{T,R} <: ImplicitSolverPreset
+    abstol::Float64=1e-6
+    reltol::Float64=1e-6
+    relax::R=ScalarRelaxation(0.0)
+    timestepper::T
+end
+
+function name(_::ImplicitNewtonSolverPreset)
     return "Implicit Newton"
+end
+
+function name(_::ImplicitPicardSolverPreset)
+    return "Implicit Picard"
 end
 
 struct DiffEqSolverPreset
@@ -191,8 +194,23 @@ function name(preset::DAEDiffEqSolverPreset)
     return "DAE-DiffEq-$(algname)"
 end
 
-function benchmark!(case::RichardsCase, preset::ImplicitSolverPreset)
+function benchmark!(case::RichardsCase, preset::ImplicitNewtonSolverPreset)
     implicit_solver = NewtonSolver(
+        LinearSolverThomas(case.parameters.n),
+        relax = preset.relax,
+        abstol = preset.abstol,
+        reltol = preset.reltol,
+    )
+    result = benchmark_model!(
+        implicit_model(case, implicit_solver, preset.timestepper, case.saveat),
+        case,
+    )
+    return result
+end
+
+
+function benchmark!(case::RichardsCase, preset::ImplicitPicardSolverPreset)
+    implicit_solver = PicardSolver(
         LinearSolverThomas(case.parameters.n),
         relax = preset.relax,
         abstol = preset.abstol,

@@ -2,6 +2,7 @@
 # - complex roots (e.g. -1^0.5) 
 # - infinities (e.g. 0^-1)
 
+# [core]
 function waterbalance!(dS, S, fuse::Fuse070Parameters)
     p = fuse.currentforcing[1]
     PET = fuse.currentforcing[2]
@@ -10,7 +11,6 @@ function waterbalance!(dS, S, fuse::Fuse070Parameters)
     S2 = S[2]
 
     # Compute saturation variables
-    # saturation of tension storage may be > 1.0 ("super-saturation")
     S1_sat_tens = S1 / (fuse.ϕtens * fuse.S1max)
     S1_sat = S1 / fuse.S1max
     act = sigmoid_activation(S1, fuse.S1max, fuse.ω)
@@ -35,6 +35,7 @@ function waterbalance!(dS, S, fuse::Fuse070Parameters)
     return q12, qsx + qufof + qb
 end
 
+# [jacobian]
 function dwaterbalance!(J, S, fuse::Fuse070Parameters)
     p = fuse.currentforcing[1]
     PET = fuse.currentforcing[2]
@@ -64,6 +65,7 @@ function dwaterbalance!(J, S, fuse::Fuse070Parameters)
     return
 end
 
+# [explicit]
 function handle_excess!(state::FuseState, fuse::Fuse070Parameters)
     (; S, flows) = state
     excess1 = max(0, S[1] - fuse.S1max)

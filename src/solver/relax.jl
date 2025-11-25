@@ -1,6 +1,7 @@
 abstract type Relaxation end
 abstract type LineSearch <: Relaxation end
 
+# [nonlinear_solve]
 struct ScalarRelaxation <: Relaxation
     relax::Float64
     function ScalarRelaxation(relax::Float64)
@@ -10,6 +11,7 @@ struct ScalarRelaxation <: Relaxation
     end
 end
 
+# [nonlinear_solve]
 function relaxed_update!(
     relaxation::ScalarRelaxation,
     linearsolver,
@@ -21,6 +23,7 @@ function relaxed_update!(
     return true
 end
 
+# [nonlinear_solve]
 @kwdef struct SimpleLineSearch <: LineSearch
     a0::Float64 = 1.0  # initial step size
     b::Float64 = 0.5  # backtracking reduction factor
@@ -148,6 +151,7 @@ function compute_step(ls::CubicLineSearch, α₁, α₂, L2₀, L2₁, L2₂)
     return α₂, newstep
 end
 
+# [nonlinear_solve]
 function relaxed_update!(ls::LineSearch, linearsolver, state, parameters, Δt)
     # α₀ = 0.0 (implicit)
     α₁ = 0.0

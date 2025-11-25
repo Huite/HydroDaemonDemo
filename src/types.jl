@@ -27,6 +27,10 @@ function primary(state::State)
 end
 
 function compute_savedflows!(state::State, parameters::Parameters, Δt)
+    # Compute flows based on the current solution.
+    q1, q2 = waterbalance!(state.dS, state.S, parameters)
+    state.flows[1] += Δt * q1
+    state.flows[2] += Δt * q2
     return
 end
 

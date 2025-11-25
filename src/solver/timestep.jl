@@ -1,7 +1,9 @@
+# [explicit]
 struct FixedTimeStepper <: TimeStepper
     Δt0::Float64
 end
 
+# [explicit]
 # Called in implicit model
 function compute_timestep_size(timestepper::FixedTimeStepper, _, converged::Bool, _)
     if !converged
@@ -10,6 +12,7 @@ function compute_timestep_size(timestepper::FixedTimeStepper, _, converged::Bool
     return timestepper.Δt0
 end
 
+# [explicit]
 # Called in explicit model
 function compute_timestep_size(
     timestepper::FixedTimeStepper,
@@ -20,6 +23,7 @@ function compute_timestep_size(
     return timestepper.Δt0
 end
 
+# [implicit]
 struct AdaptiveTimeStepper <: TimeStepper
     Δt0::Float64
     n_increase::Int
@@ -46,6 +50,7 @@ struct AdaptiveTimeStepper <: TimeStepper
     end
 end
 
+# [implicit]
 """
 Modify time step based on convergence behavior.
 """

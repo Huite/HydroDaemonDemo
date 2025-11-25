@@ -1,3 +1,4 @@
+# [output]
 """
 Wrapper around the (mutable) state and the (immutable) parameters,
 as the DifferentialEquations uses a single parameters argument.
@@ -17,6 +18,7 @@ function Base.show(io::IO, sr::SavedResults)
     )
 end
 
+# [diffeq]
 struct DiffEqParams{P}
     parameters::P
     results::SavedResults
@@ -31,6 +33,7 @@ function Base.show(io::IO, dep::DiffEqParams)
     print(io, "  Results: ", dep.results)
 end
 
+# [forcing]
 function update_forcing!(integrator)
     (; p, t) = integrator
     force!(p.parameters, t)
@@ -46,6 +49,7 @@ end
     controller::Any = nothing
 end
 
+# [diffeq]
 struct DiffEqHydrologicalModel{T}
     integrator::T
     saveat::Vector{Float64}
@@ -53,10 +57,12 @@ struct DiffEqHydrologicalModel{T}
     savedflows::Matrix{Float64}
 end
 
+# [diffeq]
 function get_parameters(model::DiffEqHydrologicalModel)
     return model.integrator.p.parameters
 end
 
+# [diffeq]
 function save_state!(integrator)
     (; u, p) = integrator
     n = p.parameters.n
@@ -78,6 +84,18 @@ function create_tolvectors(nstate, nflows, abstol, reltol)
     return vector_abstol, vector_reltol
 end
 
+# [diffeq]
+function prepare_jacobian_sparsity(parameters, nunknown)
+    return jacobian_sparsity(
+        (du, u) -> waterbalance!(du, u, t, parameters),
+        zeros(nunknown),
+        zeros(nunknown),
+        0.0,
+        TracerSparsityDetector(),
+    )
+end
+
+# [diffeq]
 function prepare_problem(
     parameters::Parameters,
     savedresults,
@@ -89,13 +107,7 @@ function prepare_problem(
 )
     nunknown = nstate + nflow
     if detect_sparsity
-        J = jacobian_sparsity(
-            (du, u) -> waterbalance!(du, u, t, parameters),
-            zeros(nunknown),
-            zeros(nunknown),
-            0.0,
-            TracerSparsityDetector(),
-        )
+        J = prepare_jacobian_sparsity(parameters, nunknown)
     else
         J = Tridiagonal(zeros(nunknown - 1), zeros(nunknown), zeros(nunknown - 1))
     end
@@ -108,6 +120,7 @@ function prepare_problem(
     return problem
 end
 
+# [diffeq]
 function DiffEqHydrologicalModel(
     parameters::Parameters,
     initial::Vector{Float64},
@@ -115,10 +128,8 @@ function DiffEqHydrologicalModel(
     saveat,
     solverconfig::SolverConfig,
 )
-    (tstart, tend) = tspan
     forcing = parameters.forcing
     saveat = create_saveat(saveat, forcing, tspan)
-    pushfirst!(saveat, tstart)
 
     nflow = 2
     nstate = length(initial)
@@ -167,12 +178,12 @@ function DiffEqHydrologicalModel(
     return DiffEqHydrologicalModel(integrator, saveat, saved, savedflows)
 end
 
+# [diffeq]
 function run!(model::DiffEqHydrologicalModel)
     DifferentialEquations.solve!(model.integrator)
     return
 end
 
-# TODO: replace by BenchmarkTools set up
 function reset_and_run!(model::DiffEqHydrologicalModel, initial)
     # Wipe results
     model.savedflows .= 0.0

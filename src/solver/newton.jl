@@ -1,3 +1,4 @@
+# [nonlinear_solve]
 """ 
     Non-linear Newton-Raphson solver, with options for backtracking/line search.
 
@@ -8,6 +9,8 @@ Requires a state type with the following associated methods:
 * copy_state!
 
 """
+
+# [nonlinear_solve]
 struct NewtonSolver{LS<:LinearSolver,R<:Relaxation}
     linearsolver::LS
     relax::R
@@ -38,6 +41,7 @@ function Base.show(io::IO, solver::NewtonSolver)
     )
 end
 
+# [nonlinear_solve]
 function converged(newton::NewtonSolver, state)
     residual = newton.linearsolver.rhs
     return all(
@@ -46,6 +50,7 @@ function converged(newton::NewtonSolver, state)
     )
 end
 
+# [nonlinear_solve]
 function setmatrix!(newton::NewtonSolver, state, parameters, Δt)
     jacobian!(newton.linearsolver.J, state, parameters, Δt)
 end

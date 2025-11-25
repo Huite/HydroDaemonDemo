@@ -1,3 +1,4 @@
+# [forcing]
 struct MeteorologicalForcing
     t::Vector{Float64}
     precipitation::Vector{Float64}
@@ -8,11 +9,13 @@ function Base.show(io::IO, forcing::MeteorologicalForcing)
     println(io, "Meteorological forcing: $(length(forcing.t)) time steps")
 end
 
+# [forcing]
 function find_rates(forcing::MeteorologicalForcing, t)
     index = searchsortedfirst(forcing.t, t)
     return (forcing.precipitation[index], forcing.evaporation[index])
 end
 
+# [forcing]
 function force!(parameters, t)
     p, e = find_rates(parameters.forcing, t)
     parameters.currentforcing[1] = p

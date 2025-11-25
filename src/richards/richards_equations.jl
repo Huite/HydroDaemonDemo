@@ -1,17 +1,21 @@
 # For boundary is nothing
 
+# [core]
 function bottomflux(ψ, parameters::AbstractRichards, boundary::Nothing)
     return 0.0
 end
 
+# [jacobian]
 function bottomboundary_jacobian(ψ, parameters, boundary::Nothing)
     return 0.0
 end
 
+# [core]
 function topflux(ψ, parameters::AbstractRichards, boundary::Nothing)
     return 0.0
 end
 
+# [jacobian]
 function topboundary_jacobian(ψ, parameters, boundary::Nothing)
     return 0.0
 end
@@ -26,14 +30,17 @@ end
 
 # Precipitation
 
+# [core]
 function forcingflux(ψ, parameters::AbstractRichards)
     return parameters.currentforcing[1]
 end
 
+# [jacobian]
 function forcing_jacobian(ψ, parameters::AbstractRichards)
     return 0.0
 end
 
+# [core]
 # Store k value since it never changes
 struct HeadBoundary
     ψ::Float64
@@ -44,6 +51,7 @@ function HeadBoundary(ψ, constitutive::ConstitutiveRelationships)
     return HeadBoundary(ψ, conductivity(ψ, constitutive))
 end
 
+# [core]
 function bottomflux(ψ, parameters::AbstractRichards, boundary::HeadBoundary)
     kmean = 0.5 * (conductivity(ψ[1], parameters.constitutive[1]) + boundary.k)
     Δψ = boundary.ψ - ψ[1]
@@ -51,6 +59,7 @@ function bottomflux(ψ, parameters::AbstractRichards, boundary::HeadBoundary)
     return kmean * (Δψ / Δz - 1)
 end
 
+# [jacobian]
 function bottomboundary_jacobian(ψ, parameters::AbstractRichards, boundary::HeadBoundary)
     kmean = 0.5 * (conductivity(ψ[1], parameters.constitutive[1]) + boundary.k)
     Δψ = boundary.ψ - ψ[1]
@@ -65,6 +74,7 @@ function bottomboundary_coefficient(ψ, parameters::AbstractRichards, boundary::
     return -kmean / Δz
 end
 
+# [core]
 function topflux(ψ, parameters::AbstractRichards, boundary::HeadBoundary)
     kmean = 0.5 * (conductivity(ψ[end], parameters.constitutive[end]) + boundary.k)
     Δψ = boundary.ψ - ψ[end]
@@ -72,6 +82,7 @@ function topflux(ψ, parameters::AbstractRichards, boundary::HeadBoundary)
     return kmean * (Δψ / Δz + 1)
 end
 
+# [jacobian]
 function topboundary_jacobian(ψ, parameters::AbstractRichards, boundary::HeadBoundary)
     kmean = 0.5 * (conductivity(ψ[end], parameters.constitutive[end]) + boundary.k)
     Δψ = boundary.ψ - ψ[end]
@@ -90,10 +101,12 @@ end
 
 struct FreeDrainage end
 
+# [core]
 function bottomflux(ψ, parameters::AbstractRichards, boundary::FreeDrainage)
     return -conductivity(ψ[1], parameters.constitutive[1])
 end
 
+# [jacobian]
 function bottomboundary_jacobian(ψ, parameters::AbstractRichards, boundary::FreeDrainage)
     return -dconductivity(ψ[1], parameters.constitutive[1])
 end
@@ -104,6 +117,7 @@ end
 
 # Full column
 
+# [core]
 function waterbalance!(∇q, ψ, parameters::AbstractRichards)
     (; constitutive, Δz, bottomboundary, topboundary, n) = parameters
     @. ∇q = 0.0
@@ -130,14 +144,8 @@ function waterbalance!(∇q, ψ, parameters::AbstractRichards)
     return qbot, qtop
 end
 
-function explicit_timestep!(state::RichardsState, parameters::RichardsParameters, Δt)
-    waterbalance!(state.∇q, state.ψ, parameters)
-    @. state.ψ += state.∇q * Δt
-    return
-end
-
 # For handwritten Newton formulation.
-
+# [implicit]
 function residual!(rhs, state::RichardsState, parameters::RichardsParameters, Δt)
     waterbalance!(state.∇q, state.ψ, parameters)
     Δz = parameters.Δz
@@ -148,6 +156,7 @@ function residual!(rhs, state::RichardsState, parameters::RichardsParameters, Δ
     return
 end
 
+# [jacobian]
 function dwaterbalance!(J, ψ, parameters::RichardsParameters)
     (; constitutive, Δz, bottomboundary, topboundary, n) = parameters
 
@@ -171,10 +180,9 @@ function dwaterbalance!(J, ψ, parameters::RichardsParameters)
         dk_lower = dk_upper
     end
 
-    # Then compute the diagonal term
     dFᵢdψᵢ .= 0.0
-    @views dFᵢdψᵢ[1:(end-1)] .+= -dFᵢ₊₁dψᵢ
-    @views dFᵢdψᵢ[2:end] .+= -dFᵢ₋₁dψᵢ
+    @views dFᵢdψᵢ[1:(end-1)] .-= dFᵢ₊₁dψᵢ
+    @views dFᵢdψᵢ[2:end] .-= dFᵢ₋₁dψᵢ
 
     J.d[1] += bottomboundary_jacobian(ψ, parameters, bottomboundary)
     J.d[end] += topboundary_jacobian(ψ, parameters, topboundary)
@@ -182,6 +190,7 @@ function dwaterbalance!(J, ψ, parameters::RichardsParameters)
     return
 end
 
+# [jacobian]
 """
     Construct the Jacobian matrix for the Richards equation finite difference system.
     Sets coefficients for the tridiagonal matrix representing ∂F/∂ψ from the perspective 
@@ -233,8 +242,8 @@ function coefficients!(A, state, parameters::RichardsParameters, Δt)
     end
 
     # Then add to the diagonal term
-    @views Cᵢ[1:(end-1)] .+= -Cᵢ₊₁
-    @views Cᵢ[2:end] .+= -Cᵢ₋₁
+    @views Cᵢ[1:(end-1)] .-= Cᵢ₊₁
+    @views Cᵢ[2:end] .-= Cᵢ₋₁
 
     # Boundary conditions
     cbot = bottomboundary_coefficient(ψ, parameters, bottomboundary)
@@ -247,6 +256,7 @@ end
 # Wrapped for DifferentialEquations
 # This is the "ψ-based" Richards equation.
 
+# [diffeq]
 function waterbalance!(du, u, p::DiffEqParams{<:RichardsParameters}, t)
     @views dψ = du[1:(end-2)]
     @views ψ = u[1:(end-2)]
@@ -264,6 +274,7 @@ function waterbalance!(du, u, p::DiffEqParams{<:RichardsParameters}, t)
     return
 end
 
+# [diffeq]
 function isoutofdomain(u, p::DiffEqParams{<:AbstractRichards}, t)
     return false
 end

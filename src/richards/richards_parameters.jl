@@ -1,5 +1,6 @@
 abstract type AbstractRichards <: Parameters end
 
+# [core]
 struct RichardsParameters{C,T,B} <: AbstractRichards
     constitutive::Vector{C}
     Δz::Float64

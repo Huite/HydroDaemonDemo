@@ -34,8 +34,30 @@ function dmin_smooth(a, b, m)
     return 0.5*(1 - (a-b)/hypot(a-b, m))
 end
 
+function max_smooth(a, b, m)
+    return 0.5*(a + b + hypot(a-b, m))
+end
+
+function dmax_smooth(a, b, m)
+    return 0.5*(1 + (a-b)/hypot(a-b, m))
+end
+
 function read_forcing(path)
     df = CSV.read(path, DataFrame)
     df.time = Dates.value.(df.Date - df.Date[1]) / 1.0
     return MeteorologicalForcing(df.time, df.P / 1000.0, df.ET / 1000.0)
+end
+
+function okabe_ito_colors()
+    # Should be colorblind friendly.
+    return Dict(
+        :orange => "#E69F00",
+        :light_blue => "#56B4E9",
+        :green => "#009E73",
+        :yellow => "#F0E442",
+        :blue => "#0072B2",
+        :dark_orange => "#D55E00",
+        :pink => "#CC79A7",
+        :black => "#000000",
+    )
 end

@@ -15,7 +15,6 @@ struct MualemVanGenuchten <: ConstitutiveRelationships
     end
 end
 
-# Mualem-van Genuchten functions
 function effective_saturation(ψ, mvg::MualemVanGenuchten)
     (; a, n, m) = mvg
     Se = (1 + (a * abs(ψ))^n)^(-m)
@@ -67,6 +66,7 @@ end
 
 # Modified Mualem–van Genuchten relations (Vogel 2000, Ippisch 2006)
 
+# [core]
 struct ModifiedMualemVanGenuchten <: ConstitutiveRelationships
     a::Float64      # van Genuchten a [1/L]
     n::Float64      # pore‑size distribution parameter
@@ -87,11 +87,13 @@ struct ModifiedMualemVanGenuchten <: ConstitutiveRelationships
     end
 end
 
+# [core]
 function effective_saturation(ψ, mvg::ModifiedMualemVanGenuchten)
     (; a, n, m, ψe, Sc) = mvg
     return ifelse(ψ > ψe, 1.0, (1 / Sc) * (1 + (a * abs(ψ))^n)^(-m))
 end
 
+# [jacobian]
 function deffective_saturation(ψ, mvg::ModifiedMualemVanGenuchten)
     (; a, n, m, Sc, ψe) = mvg
     absψ = abs(ψ)
@@ -100,22 +102,27 @@ function deffective_saturation(ψ, mvg::ModifiedMualemVanGenuchten)
     return ifelse(ψ > ψe, 0.0, derivative)
 end
 
+# [core]
 function moisture_content(ψ, mvg::ModifiedMualemVanGenuchten)
     (; θs, θr) = mvg
     return θr + effective_saturation(ψ, mvg) * (θs - θr)
 end
 
+# [core]
 """Specific moisture capacity C = dθ/dψ"""
 function specific_moisture_capacity(ψ, mvg::ModifiedMualemVanGenuchten)
     (; θs, θr) = mvg
     return deffective_saturation(ψ, mvg) * (θs - θr)
 end
 
+
+# [core]
 # Helper function
 @inline function _F(x, m)
     return 1 - (1 - x^(1 / m))^m
 end
 
+# [core]
 function conductivity(ψ, mvg::ModifiedMualemVanGenuchten)
     (; ks, l, m, Sc) = mvg
     Se = effective_saturation(ψ, mvg)
@@ -126,6 +133,7 @@ function conductivity(ψ, mvg::ModifiedMualemVanGenuchten)
     return ks * kr
 end
 
+# [jacobian]
 """∂K/∂ψ for Jacobian"""
 function dconductivity(ψ, mvg::ModifiedMualemVanGenuchten)
     (; ks, l, m, Sc, ψe) = mvg

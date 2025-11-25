@@ -5,6 +5,7 @@ LDLT is omitted, since the Newton Jacobian is not symmetric.
 
 abstract type LinearSolver end
 
+# [nonlinear_solve]
 """Tridiagonal linear solver."""
 struct LinearSolverThomas <: LinearSolver
     n::Int
@@ -23,6 +24,7 @@ function Base.show(io::IO, solver::LinearSolverThomas)
     print(io, "LinearSolverThomas(n=$(solver.n))")
 end
 
+# [nonlinear_solve]
 """Thomas algorithm."""
 function linearsolve!(solver::LinearSolverThomas)
     (; n, J, rhs, ϕ, y, B) = solver

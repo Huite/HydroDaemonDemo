@@ -3,6 +3,7 @@ using DifferentialEquations
 using DataFrames
 using Plots
 using CSV
+using Sundials
 
 function create_celia()
     # Note: units are centimeters and seconds!
@@ -34,7 +35,7 @@ function run(case, solver_presets)
     rows = []
     results = []
     for preset in solver_presets
-        if preset isa HDD.ImplicitSolverPreset
+        if preset isa HDD.ImplicitNewtonSolverPreset
             name = "$(HDD.name(preset))-$(preset.timestepper.Δt0)"
         else
             name = HDD.name(preset)
@@ -46,8 +47,7 @@ function run(case, solver_presets)
             rows,
             (
                 solver = name,
-                #                time = minimum(result.trial).time / 1e6,  # ms gives reasonable numbers.
-                time = result.time * 1000.0,  # ms gives reasonable numbers.
+                time = minimum(result.trial).time / 1e9,
                 mass_bias = result.mass_bias,
                 mass_rmse = result.mass_rsme,
             ),
@@ -60,15 +60,36 @@ end
 
 celia = create_celia()
 solver_presets = (
-    HDD.ImplicitSolverPreset(timestepper = HDD.FixedTimeStepper(0.1)),
-    HDD.ImplicitSolverPreset(timestepper = HDD.FixedTimeStepper(1.0)),
-    HDD.ImplicitSolverPreset(timestepper = HDD.FixedTimeStepper(10.0)),
-    HDD.ImplicitSolverPreset(timestepper = HDD.FixedTimeStepper(30.0)),
-    HDD.ImplicitSolverPreset(timestepper = HDD.FixedTimeStepper(120.0)),
+    HDD.ImplicitNewtonSolverPreset(
+        timestepper = HDD.FixedTimeStepper(0.1),
+        abstol = 1e-8,
+        reltol = 1e-8,
+    ),
+    HDD.ImplicitNewtonSolverPreset(
+        timestepper = HDD.FixedTimeStepper(1.0),
+        abstol = 1e-8,
+        reltol = 1e-8,
+    ),
+    HDD.ImplicitNewtonSolverPreset(
+        timestepper = HDD.FixedTimeStepper(10.0),
+        abstol = 1e-8,
+        reltol = 1e-8,
+    ),
+    HDD.ImplicitNewtonSolverPreset(
+        timestepper = HDD.FixedTimeStepper(30.0),
+        abstol = 1e-8,
+        reltol = 1e-8,
+    ),
+    HDD.ImplicitNewtonSolverPreset(
+        timestepper = HDD.FixedTimeStepper(120.0),
+        abstol = 1e-8,
+        reltol = 1e-8,
+    ),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler())),
     HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler())),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
     HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
+    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = CVODE_BDF())),
 )
 
 df, results = run(celia, solver_presets)
@@ -79,7 +100,7 @@ function plothead(case, solver_presets, results)
     n = case.parameters.n
     for (preset, result) in zip(solver_presets, results)
 
-        if preset isa HDD.ImplicitSolverPreset
+        if preset isa HDD.ImplicitNewtonSolverPreset
             name = "$(HDD.name(preset))-$(preset.timestepper.Δt0)"
         else
             name = HDD.name(preset)
@@ -95,3 +116,23 @@ end
 selection = [1, 3, 4, 5, 6]
 plothead(celia, solver_presets[selection], results[selection])
 savefig("cases/output/celia-head.pdf")
+
+
+
+data = Dict{String,Vector{Float64}}()
+for (preset, result) in zip(solver_presets, results)
+    if preset isa HDD.ImplicitNewtonSolverPreset
+        name = "$(HDD.name(preset))-$(preset.timestepper.Δt0)"
+    else
+        name = HDD.name(preset)
+    end
+
+    model = result.model
+    parameters = HDD.get_parameters(model)
+    finalψ = model.saved[1:parameters.n, end]
+
+    data[name] = finalψ
+end
+
+headdf = DataFrame(data)
+CSV.write("cases/output/celia-final-head.csv", headdf)

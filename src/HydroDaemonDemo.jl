@@ -18,13 +18,6 @@ using SparseConnectivityTracer: AbstractTracer, TracerSparsityDetector, jacobian
 # C2 continuous interpolations
 import DataInterpolations
 
-# Provide a CustomController
-import OrdinaryDiffEqCore: AbstractController
-import OrdinaryDiffEqCore:
-    stepsize_controller!,
-    accept_step_controller,
-    step_accept_controller!,
-    step_reject_controller!
 
 include("types.jl")
 
@@ -40,7 +33,6 @@ include("forcing.jl")
 include("model/model_explicit.jl")
 include("model/model_implicit.jl")
 include("model/model_diffeq.jl")
-include("model/custom_controller.jl")
 include("model/model.jl")
 
 # Cascade of bucket reservoirs
