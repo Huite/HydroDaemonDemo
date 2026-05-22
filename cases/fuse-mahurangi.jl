@@ -14,7 +14,6 @@ function multi_pane_plot(
     diffeq_fuse,
     window,
 )
-
     function flows(model, index)
         # Savedflows contain the time-integrated flows.
         return diff(model.savedflows[index, :])
@@ -143,11 +142,11 @@ forcing = HDD.MeteorologicalForcing(
     forcingdf.Evaporation,
 )
 fuse = HDD.Fuse070Parameters(
-    ϕtens = 0.5,    # 
+    ϕtens = 0.5,    #
     S1max = 100.0,  # mm
-    b = 0.2,        # 
+    b = 0.2,        #
     ku = 500.0,     # mm/d
-    c = 10,         # 
+    c = 10,         #
     v = 0.1,        # 1/d
     μτ = 0.6,       # d
     forcing = forcing,
