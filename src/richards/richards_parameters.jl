@@ -10,13 +10,7 @@ struct RichardsParameters{C,T,B} <: AbstractRichards
     n::Int
     currentforcing::Vector{Float64}  # P, ET
 
-    function RichardsParameters(;
-        constitutive,
-        Δz,
-        forcing,
-        bottomboundary,
-        topboundary,
-    )
+    function RichardsParameters(; constitutive, Δz, forcing, bottomboundary, topboundary)
         new{eltype(constitutive),typeof(topboundary),typeof(bottomboundary)}(
             constitutive,
             Δz,
@@ -97,21 +91,19 @@ function prepare_problem(
     tspan,
 )
     nunknown = nstate * 2 + nflow
-    J = jacobian_sparsity(
+    Jpattern = jacobian_sparsity(
         (du, u) -> waterbalance_dae!(du, u, parameters),
         zeros(nunknown),
         zeros(nunknown),
         TracerSparsityDetector(),
     )
-    M = Diagonal([zeros(nstate); ones(nstate); ones(nflow)])
+    J = Float64.(Jpattern)
+    #M = Diagonal([zeros(nstate); ones(nstate); ones(nflow)])
 
-    #    Z = spzeros(Float64, nstate, nstate)
-    #    I_n = spdiagm(0 => ones(Float64, nstate))
-    #    Ss = spdiagm(0 => Float64[con.Ss for con in parameters.constitutive])
-    #    M = blockdiag(
-    #        [Z Z; Ss I_n],
-    #        sparse(Float64, I, 2, 2)
-    #    )
+    Z = spzeros(Float64, nstate, nstate)
+    I_n = spdiagm(0 => ones(Float64, nstate))
+    Ss = spdiagm(0 => Float64[con.Ss for con in parameters.constitutive])
+    M = blockdiag([Z Z; Ss I_n], sparse(Float64, I, nflow, nflow))
 
     f = ODEFunction(waterbalance!; mass_matrix = M, jac_prototype = J)
     u0 = zeros(nunknown)
