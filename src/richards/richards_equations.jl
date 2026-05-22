@@ -131,6 +131,7 @@ function waterbalance!(∇q, ψ, parameters::AbstractRichards)
         q = k_inter * (Δψ * Δz⁻¹ + 1)
         ∇q[i] += q
         ∇q[upper] -= q
+        k_lower = k_upper
     end
 
     # Boundary conditions
