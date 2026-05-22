@@ -1,7 +1,7 @@
 name = "HydroDaemonDemo"
 uuid = "3c923975-32fb-4abc-adda-9b9f4e6ca789"
-authors = ["Huite <huite.bootsma@gmail.com>"]
 version = "0.1.0"
+authors = ["Huite <huite.bootsma@gmail.com>"]
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
@@ -11,6 +11,7 @@ DASSL = "e993076c-0cfd-5d6b-a1ac-36489fdf7917"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataInterpolations = "82cc6244-b520-54b8-b5a6-8a565e85f1d0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+DiffEqCallbacks = "459566f4-90b8-5000-8ac3-15dfb0a30def"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Glob = "c27321d9-0574-5035-807b-f59d2c89b15c"
@@ -32,6 +33,7 @@ DASKR = "2.9.1"
 DASSL = "2.6.1"
 DataInterpolations = "8.3.1"
 Dates = "1.11.0"
+DiffEqCallbacks = "4.17.0"
 Distributions = "0.25.120"
 Glob = "1.3.1"
 LineSearch = "0.1.4"
