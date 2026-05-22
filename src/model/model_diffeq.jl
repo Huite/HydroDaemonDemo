@@ -76,11 +76,17 @@ function save_state!(integrator)
     return
 end
 
-function create_tolvectors(nstate, nflows, abstol, reltol)
-    vector_abstol = fill(abstol, nstate)
-    vector_reltol = fill(reltol, nstate)
-    @views vector_abstol[(end-nflows+1):end] .= 1e12
-    @views vector_reltol[(end-nflows+1):end] .= 1e12
+function create_tolvectors(nunknown, nflow, abstol::Vector, reltol::Vector)
+    # Do nothing in case tolerances are already specified as vectors.
+    return abstol, reltol
+end
+
+function create_tolvectors(nunknown, nflow, abstol::Float64, reltol::Float64)
+    vector_abstol = fill(abstol, nunknown)
+    vector_reltol = fill(reltol, nunknown)
+    # Set flow tolerances to a huge number.
+    @views vector_abstol[(end-nflow+1):end] .= 1e12
+    @views vector_reltol[(end-nflow+1):end] .= 1e12
     return vector_abstol, vector_reltol
 end
 
@@ -101,12 +107,12 @@ function prepare_problem(
     savedresults,
     nstate,
     nflow,
-    detect_sparsity,
+    solverconfig,
     initial,
     tspan,
 )
     nunknown = nstate + nflow
-    if detect_sparsity
+    if solverconfig.detect_sparsity
         J = prepare_jacobian_sparsity(parameters, nunknown)
     else
         J = Tridiagonal(zeros(nunknown - 1), zeros(nunknown), zeros(nunknown - 1))
@@ -117,7 +123,10 @@ function prepare_problem(
     @views u0[1:length(initial)] .= initial
     params = DiffEqParams(parameters, savedresults)
     problem = ODEProblem(f, u0, tspan, params)
-    return problem
+
+    abstol, reltol =
+        create_tolvectors(nunknown, nflow, solverconfig.abstol, solverconfig.reltol)
+    return problem, abstol, reltol
 end
 
 # [diffeq]
@@ -145,20 +154,21 @@ function DiffEqHydrologicalModel(
 
     callbacks = CallbackSet(forcing_callback, save_callback)
 
-    problem = prepare_problem(
+    problem, abstol, reltol = prepare_problem(
         parameters,
         savedresults,
         nstate,
         nflow,
-        solverconfig.detect_sparsity,
+        solverconfig,
         initial,
         tspan,
     )
 
-    # TODO: _dae_initialize! does not support abstol reltol vectors at the moment.
-    # https://github.com/SciML/OrdinaryDiffEq.jl/issues/2820
-    #abstol, reltol =
-    #    create_tolvectors(nstate, nflows, solverconfig.abstol, solverconfig.reltol)
+    # CVODE_BDF requires scalar tolerances.
+    if solverconfig.alg isa CVODE_BDF
+        abstol = abstol[1]
+        reltol = reltol[1]
+    end
 
     integrator = init(
         problem,
@@ -171,8 +181,8 @@ function DiffEqHydrologicalModel(
         callback = callbacks,
         tstops = tstops,
         isoutofdomain = isoutofdomain,
-        abstol = solverconfig.abstol,
-        reltol = solverconfig.reltol,
+        abstol = abstol,
+        reltol = reltol,
         maxiters = solverconfig.maxiters,
     )
     return DiffEqHydrologicalModel(integrator, saveat, saved, savedflows)

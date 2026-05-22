@@ -1,5 +1,3 @@
-# For boundary is nothing
-
 # [core]
 function bottomflux(ψ, parameters::AbstractRichards, boundary::Nothing)
     return 0.0
@@ -133,7 +131,6 @@ function waterbalance!(∇q, ψ, parameters::AbstractRichards)
         q = k_inter * (Δψ * Δz⁻¹ + 1)
         ∇q[i] += q
         ∇q[upper] -= q
-        k_lower = k_upper
     end
 
     # Boundary conditions
@@ -144,14 +141,16 @@ function waterbalance!(∇q, ψ, parameters::AbstractRichards)
     return qbot, qtop
 end
 
-# For handwritten Newton formulation.
+# For hand-coded Newton formulation.
 # [implicit]
 function residual!(rhs, state::RichardsState, parameters::RichardsParameters, Δt)
     waterbalance!(state.∇q, state.ψ, parameters)
     Δz = parameters.Δz
     for i = 1:parameters.n
         θ = moisture_content(state.ψ[i], parameters.constitutive[i])
-        rhs[i] = -(state.∇q[i] - Δz * (θ - state.θ_old[i]) / Δt)
+        Ss = parameters.constitutive[i].Ss
+        storage = θ - state.θ_old[i] + Ss * (state.ψ[i] - state.ψ_old[i])
+        rhs[i] = -(state.∇q[i] - Δz * storage / Δt)
     end
     return
 end
@@ -174,8 +173,9 @@ function dwaterbalance!(J, ψ, parameters::RichardsParameters)
         dk_upper = dconductivity(ψ[upper], constitutive[upper])
         conductance = 0.5 * (k_lower + k_upper) * Δz⁻¹
         Δψ = ψ[upper] - ψ[i]
-        dFᵢ₊₁dψᵢ[i] = conductance - dk_lower * (Δψ * Δz⁻¹) * 0.5
-        dFᵢ₋₁dψᵢ[i] = conductance + dk_lower * (Δψ * Δz⁻¹) * 0.5
+        s = Δψ * Δz⁻¹ + 1
+        dFᵢ₊₁dψᵢ[i] = conductance - 0.5 * dk_lower * s
+        dFᵢ₋₁dψᵢ[i] = conductance + 0.5 * dk_upper * s
         k_lower = k_upper
         dk_lower = dk_upper
     end
@@ -203,9 +203,8 @@ function jacobian!(J, state, parameters::RichardsParameters, Δt)
     Δz = parameters.Δz
     for i = 1:parameters.n
         C = specific_moisture_capacity(state.ψ[i], parameters.constitutive[i])
-        Sa = aqueous_saturation(state.ψ[i], parameters.constitutive[i])
         Ss = parameters.constitutive[i].Ss
-        J.d[i] -= (Δz * (C + Sa * Ss)) / Δt
+        J.d[i] -= (Δz * (C + Ss)) / Δt
     end
     return
 end
@@ -225,9 +224,8 @@ function coefficients!(A, state, parameters::RichardsParameters, Δt)
 
     for i = 1:n
         C = specific_moisture_capacity(ψ[i], constitutive[i])
-        Sa = aqueous_saturation(ψ[i], constitutive[i])
         Ss = constitutive[i].Ss
-        Cᵢ[i] = -(Δz * (C + Sa * Ss)) / Δt
+        Cᵢ[i] = -(Δz * (C + Ss)) / Δt
     end
 
     k_lower = conductivity(ψ[1], constitutive[1])
@@ -265,9 +263,8 @@ function waterbalance!(du, u, p::DiffEqParams{<:RichardsParameters}, t)
     Δz = parameters.Δz
     for i = 1:parameters.n
         C = specific_moisture_capacity(ψ[i], parameters.constitutive[i])
-        Sa = aqueous_saturation(ψ[i], parameters.constitutive[i])
         Ss = parameters.constitutive[i].Ss
-        dψ[i] *= 1.0 / (Δz * (C + Sa * Ss))
+        dψ[i] *= 1.0 / (Δz * (C + Ss))
     end
     du[end-1] = qbot
     du[end] = qtop
@@ -283,19 +280,17 @@ function waterbalance_dae!(du, u, parameters::RichardsParametersDAE)
     n = parameters.n
     dψ = @view du[1:n]  # Acts as ∇q first
     ψ = @view u[1:n]
-    dθ = @view du[(n+1):(end-2)]
-    θ = @view u[(n+1):(end-2)]
+    nflow = 2
+    dθ = @view du[(n+1):(end-nflow)]
+    θ = @view u[(n+1):(end-nflow)]
 
     qbot, qtop = waterbalance!(dψ, ψ, parameters)
+    ∇q = dψ
     Δz = parameters.Δz
     for i = 1:parameters.n
-        # Head-based Richards equation
-        C = specific_moisture_capacity(ψ[i], parameters.constitutive[i])
-        Sa = θ[i] / parameters.constitutive[i].θs
-        Ss = parameters.constitutive[i].Ss
-        dψ[i] /= (Δz * (C + Sa * Ss))
+        dθ[i] = ∇q[i] / Δz
         # Algebraic constraint
-        dθ[i] = θ[i] - moisture_content(ψ[i], parameters.constitutive[i])
+        dψ[i] = θ[i] - moisture_content(ψ[i], parameters.constitutive[i])
     end
     du[end-1] = qbot
     du[end] = qtop

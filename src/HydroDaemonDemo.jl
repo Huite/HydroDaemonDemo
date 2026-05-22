@@ -4,6 +4,9 @@ using Glob
 using Revise
 using LinearAlgebra
 using DifferentialEquations
+using DiffEqCallbacks:
+    FunctionCallingCallback, PresetTimeCallback, SavedValues, SavingCallback
+using Sundials
 # Bencharmking
 using BenchmarkTools
 # For some basic IO and utilities

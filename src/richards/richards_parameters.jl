@@ -10,7 +10,13 @@ struct RichardsParameters{C,T,B} <: AbstractRichards
     n::Int
     currentforcing::Vector{Float64}  # P, ET
 
-    function RichardsParameters(; constitutive, Δz, forcing, bottomboundary, topboundary)
+    function RichardsParameters(;
+        constitutive,
+        Δz,
+        forcing,
+        bottomboundary,
+        topboundary,
+    )
         new{eltype(constitutive),typeof(topboundary),typeof(bottomboundary)}(
             constitutive,
             Δz,
@@ -86,19 +92,27 @@ function prepare_problem(
     savedresults,
     nstate,
     nflow,
-    detect_sparsity,
+    solverconfig,
     initial,
     tspan,
 )
     nunknown = nstate * 2 + nflow
-    # ignores detect_sparsity; always runs SparseConnectivityTracer.
     J = jacobian_sparsity(
         (du, u) -> waterbalance_dae!(du, u, parameters),
         zeros(nunknown),
         zeros(nunknown),
         TracerSparsityDetector(),
     )
-    M = Diagonal([ones(nstate); zeros(nstate); ones(nflow)])
+    M = Diagonal([zeros(nstate); ones(nstate); ones(nflow)])
+
+    #    Z = spzeros(Float64, nstate, nstate)
+    #    I_n = spdiagm(0 => ones(Float64, nstate))
+    #    Ss = spdiagm(0 => Float64[con.Ss for con in parameters.constitutive])
+    #    M = blockdiag(
+    #        [Z Z; Ss I_n],
+    #        sparse(Float64, I, 2, 2)
+    #    )
+
     f = ODEFunction(waterbalance!; mass_matrix = M, jac_prototype = J)
     u0 = zeros(nunknown)
     θ0 = moisture_content.(initial, parameters.constitutive)
@@ -106,5 +120,19 @@ function prepare_problem(
     @views u0[(nstate+1):(nstate*2)] .= θ0
     params = DiffEqParams(parameters, savedresults)
     problem = ODEProblem(f, u0, tspan, params)
-    return problem
+    abstol, reltol =
+        create_tolvectors(nunknown, nflow, solverconfig.abstol, solverconfig.reltol)
+    return problem, abstol, reltol
+end
+
+function reset!(p::RichardsParametersDAE, u0, initial)
+    u0 .= 0.0
+    n = p.n
+    ψ0 = @view u0[1:n]
+    θ0 = @view u0[(n+1):(n*2)]
+    ψ0 .= initial
+    for i = 1:n
+        θ0[i] = moisture_content(ψ0[i], p.constitutive[i])
+    end
+    return
 end
