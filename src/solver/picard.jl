@@ -4,7 +4,6 @@ However, without loss of generality we can solve for the update of y instead,
 similar to a Newton-Raphson method. In that case, they may share the residual
 formulation.
 """
-# [nonlinear_solve]
 struct PicardSolver{LS<:LinearSolver,R<:Relaxation}
     linearsolver::LS
     relax::R
@@ -33,7 +32,6 @@ function Base.show(io::IO, solver::PicardSolver)
     )
 end
 
-# [nonlinear_solve]
 function converged(picard::PicardSolver, state)
     residual = picard.linearsolver.rhs
     return all(
@@ -42,7 +40,6 @@ function converged(picard::PicardSolver, state)
     )
 end
 
-# [nonlinear_solve]
 function setmatrix!(picard::PicardSolver, state, parameters, Δt)
     coefficients!(picard.linearsolver.J, state, parameters, Δt)
 end

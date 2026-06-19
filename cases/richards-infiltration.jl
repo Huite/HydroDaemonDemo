@@ -28,9 +28,8 @@ function create_infiltration(forcing)
         ψe = -1e-3,
         Ss = 1e-6,
     )
-    siltloamspline = HDD.SplineConstitutive(siltloam)
     infiltration = HDD.RichardsCase(
-        soil = siltloamspline,
+        soil = siltloam,
         Δz = 0.1,
         Δztotal = 1.5,
         tend = forcing.t[end] + 1.0,
@@ -68,14 +67,29 @@ forcingdf, forcing = read_forcing("data/infiltration.dat")
 infiltration = create_infiltration(forcing)
 solver_presets = (
     HDD.ImplicitNewtonSolverPreset(
-        relax = HDD.ScalarRelaxation(0.0),
-        abstol = 1e-8,
-        reltol = 1e-8,
         timestepper = HDD.AdaptiveTimeStepper(Δt0 = 1.0),
     ),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
     HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
-    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = CVODE_BDF(jac_upper = 1, jac_lower = 1))),
+    HDD.DiffEqSolverPreset(
+        HDD.SolverConfig(
+            alg = CVODE_BDF(linear_solver = :Band, jac_upper = 1, jac_lower = 1),
+        ),
+    ),
+    HDD.DiffEqSolverPreset(
+        HDD.SolverConfig(
+            alg = QNDF(nlsolve = NLNewton(κ = 1e-7)),
+            abstol = 1e-1,
+            reltol = 1e-1,
+        ),
+    ),
+    HDD.DAEDiffEqSolverPreset(
+        HDD.SolverConfig(
+            alg = QNDF(nlsolve = NLNewton(κ = 1e-7)),
+            abstol = 1e-1,
+            reltol = 1e-1,
+        ),
+    ),
 )
 
 df, results = run(infiltration, solver_presets)

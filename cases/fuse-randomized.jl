@@ -231,18 +231,18 @@ solver_presets = [
     HDD.ImplicitNewtonSolverPreset(
         relax = HDD.SimpleLineSearch(),
         timestepper = HDD.AdaptiveTimeStepper(Δt0 = 0.5, Δtmax = 0.5),
-        abstol = 1e-3,
-        reltol = 1e-3,
+        abstol = 1e-6,
+        reltol = 1e-6,
     ),
-    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = Tsit5(), abstol = 1e-3, reltol = 1e-3)),
-    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = Rodas5P(), abstol = 1e-3, reltol = 1e-3)),
+    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = Tsit5(), abstol = 1e-6, reltol = 1e-6)),
+    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = Rodas5P(), abstol = 1e-6, reltol = 1e-6)),
     HDD.DiffEqSolverPreset(
-        HDD.SolverConfig(alg = AutoTsit5(Rodas5P()), abstol = 1e-3, reltol = 1e-3),
+        HDD.SolverConfig(alg = AutoTsit5(Rodas5P()), abstol = 1e-6, reltol = 1e-6),
     ),
 ]
 
 preset =
-    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = Tsit5(), abstol = 1e-6, reltol = 1e-6))
+    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = Tsit5(), abstol = 1e-9, reltol = 1e-9))
 reference_models = run_reference(parameters, preset)
 refflows = create_reference_streamflow(reference_models)
 results = run(parameters, solver_presets, streamflow, refflows);

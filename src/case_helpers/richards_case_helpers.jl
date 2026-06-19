@@ -84,8 +84,11 @@ function diffeq_model_dae(case::RichardsCase, solverconfig, saveat)
 end
 
 function storage(ψ, parameters::AbstractRichards)
+    # Elastic storage is Ss * ∫_{ψ_ref}^{ψ} S_a(ξ) dξ. We take S_a = 1 and ψ_ref = 0, giving
+    # Ss * ψ. The reference cancels in storage differences, so its choice does
+    # not affect mass balance diagnostics.
     θ = moisture_content.(ψ, parameters.constitutive)
-    S_elastic = [c.Ss * θi / c.θs for (c, θi) in zip(parameters.constitutive, θ)]
+    S_elastic = [c.Ss * ψi for (c, ψi) in zip(parameters.constitutive, ψ)]
     return parameters.Δz * (θ + S_elastic)
 end
 
@@ -128,7 +131,7 @@ end
 
 function benchmark_model!(model, case::RichardsCase)
     run!(model)
-    trial = @benchmark reset_and_run!($model, $(case.ψ0)) samples=20
+    trial = @benchmark reset_and_run!($model, $(case.ψ0)) samples=5 evals=1
     #time = @elapsed reset_and_run!(model, case.ψ0)
     wb = waterbalance_dataframe(model)
     return BenchMarkResult(model, trial, wb, massbalance_bias(wb), massbalance_rmse(wb))
@@ -155,15 +158,15 @@ end
 abstract type ImplicitSolverPreset end
 
 @kwdef struct ImplicitNewtonSolverPreset{T,R} <: ImplicitSolverPreset
-    abstol::Float64=1e-6
-    reltol::Float64=1e-6
-    relax::R=ScalarRelaxation(0.0)
+    abstol::Float64=1e-8
+    reltol::Float64=1e-8
+    relax::R=SimpleLineSearch()
     timestepper::T
 end
 
 @kwdef struct ImplicitPicardSolverPreset{T,R} <: ImplicitSolverPreset
-    abstol::Float64=1e-6
-    reltol::Float64=1e-6
+    abstol::Float64=1e-8
+    reltol::Float64=1e-8
     relax::R=ScalarRelaxation(0.0)
     timestepper::T
 end
@@ -182,7 +185,12 @@ end
 
 function name(preset::DiffEqSolverPreset)
     algname = string(typeof(preset.solverconfig.alg).name.name)
-    return "DiffEq-$(algname)"
+    tolerance = preset.solverconfig.abstol
+    if isapprox(tolerance, 1e-6)
+        return "DiffEq-$(algname)"
+    else
+        return "DiffEq-$(algname)-tol=$(tolerance)"
+    end
 end
 
 struct DAEDiffEqSolverPreset
@@ -191,7 +199,12 @@ end
 
 function name(preset::DAEDiffEqSolverPreset)
     algname = string(typeof(preset.solverconfig.alg).name.name)
-    return "DAE-DiffEq-$(algname)"
+    tolerance = preset.solverconfig.abstol
+    if isapprox(tolerance, 1e-6)
+        return "DAE-DiffEq-$(algname)"
+    else
+        return "DAE-DiffEq-$(algname)-tol=$(tolerance)"
+    end
 end
 
 function benchmark!(case::RichardsCase, preset::ImplicitNewtonSolverPreset)

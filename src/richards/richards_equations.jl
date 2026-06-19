@@ -287,9 +287,8 @@ function waterbalance_dae!(du, u, parameters::RichardsParametersDAE)
 
     qbot, qtop = waterbalance!(dψ, ψ, parameters)
     ∇q = dψ
-    Δz = parameters.Δz
     for i = 1:parameters.n
-        dθ[i] = ∇q[i] / Δz
+        dθ[i] = ∇q[i]
         # Algebraic constraint
         dψ[i] = θ[i] - moisture_content(ψ[i], parameters.constitutive[i])
     end

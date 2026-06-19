@@ -32,6 +32,7 @@ end
     maxiter::Int = 5
 end
 
+# [nonlinear_solve]
 function compute_step(ls::SimpleLineSearch, _, α₂, _, _, _)
     return α₂, max(ls.b * α₂, ls.minstep * α₂)
 end

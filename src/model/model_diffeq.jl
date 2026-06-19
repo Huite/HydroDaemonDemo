@@ -113,7 +113,8 @@ function prepare_problem(
 )
     nunknown = nstate + nflow
     if solverconfig.detect_sparsity
-        J = prepare_jacobian_sparsity(parameters, nunknown)
+        Jpattern = prepare_jacobian_sparsity(parameters, nunknown)
+        J = Float64.(Jpattern)
     else
         J = Tridiagonal(zeros(nunknown - 1), zeros(nunknown), zeros(nunknown - 1))
     end

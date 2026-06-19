@@ -17,16 +17,15 @@ function create_millersand()
         Ss = 1e-6,
         ψe = -1e-3,
     )
-    sandspline = HDD.SplineConstitutive(sand)
     millersand = HDD.RichardsCase(
-        soil = sand,#spline,
+        soil = sand,
         Δz = 0.0125,
         Δztotal = 10.0,
         tend = 0.18,
         dt = 0.01,
         ψ0 = HDD.InitialHydrostatic(watertable = 0.0),
-        topboundary = HDD.HeadBoundary(0.1, sandspline),
-        bottomboundary = HDD.HeadBoundary(0.0, sandspline),
+        topboundary = HDD.HeadBoundary(0.1, sand),
+        bottomboundary = HDD.HeadBoundary(0.0, sand),
         forcing = nothing,
     )
     return millersand
@@ -43,16 +42,15 @@ function create_millerloam()
         Ss = 1e-6,
         ψe = -1e-3,
     )
-    loamspline = HDD.SplineConstitutive(loam)
     millerloam = HDD.RichardsCase(
-        soil = loam,#spline,
+        soil = loam,
         Δz = 0.0125,
         Δztotal = 5.0,
         tend = 2.25,
         dt = 0.01,
         ψ0 = HDD.InitialHydrostatic(watertable = 0.0),
-        topboundary = HDD.HeadBoundary(0.1, loamspline),
-        bottomboundary = HDD.HeadBoundary(0.0, loamspline),
+        topboundary = HDD.HeadBoundary(0.1, loam),
+        bottomboundary = HDD.HeadBoundary(0.0, loam),
         forcing = nothing,
     )
     return millerloam
@@ -69,17 +67,15 @@ function create_millerclayloam()
         ψe = -1e-3,
         Ss = 1e-6,
     )
-    clayloamspline = HDD.SplineConstitutive(clayloam)
-
     millerclayloam = HDD.RichardsCase(
-        soil = clayloam,#spline,
+        soil = clayloam,
         Δz = 0.00625,
         Δztotal = 2.0,
         tend = 1.0,
         dt = 0.01,
         ψ0 = HDD.InitialHydrostatic(watertable = 0.0),
-        topboundary = HDD.HeadBoundary(0.1, clayloamspline),
-        bottomboundary = HDD.HeadBoundary(0.0, clayloamspline),
+        topboundary = HDD.HeadBoundary(0.1, clayloam),
+        bottomboundary = HDD.HeadBoundary(0.0, clayloam),
         forcing = nothing,
     )
     return millerclayloam
@@ -110,20 +106,32 @@ function run(cases, solver_presets)
     return df, results
 end
 
+
 solver_presets = (
     HDD.ImplicitNewtonSolverPreset(
-        relax = HDD.SimpleLineSearch(),
         timestepper = HDD.AdaptiveTimeStepper(Δt0 = 0.01),
     ),
     HDD.ImplicitNewtonSolverPreset(
-        relax = HDD.SimpleLineSearch(),
         timestepper = HDD.AdaptiveTimeStepper(Δt0 = 0.0001, Δtmax = 0.0001),
     ),
-    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(), maxiters = 199_000)),
-    HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(), maxiters = 200_000)),
+    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(), maxiters = 200_000)),
     HDD.DiffEqSolverPreset(
         HDD.SolverConfig(
             alg = CVODE_BDF(linear_solver = :Band, jac_upper = 1, jac_lower = 1),
+        ),
+    ),
+    HDD.DAEDiffEqSolverPreset(
+        HDD.SolverConfig(
+            alg = QNDF(nlsolve = NLNewton(κ = 1e-6)),
+            abstol = 1e-2,
+            reltol = 1e-2,
+        ),
+    ),
+    HDD.DAEDiffEqSolverPreset(
+        HDD.SolverConfig(
+            alg = ImplicitEuler(nlsolve = NLNewton(κ = 1e-6)),
+            abstol = 1e-2,
+            reltol = 1e-2,
         ),
     ),
 )
@@ -133,7 +141,15 @@ cases = (
     clayloam = create_millerclayloam(),
 )
 
+# %%
+#
+#model = HDD.diffeq_model_dae(cases[1], solver_presets[1].solverconfig, cases[1].saveat)
+#HDD.run!(model)
+#
+# %%
+
 df, results = run(cases, solver_presets)
+
 CSV.write("cases/output/miller.csv", df)
 
 n = length(solver_presets)

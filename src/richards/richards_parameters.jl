@@ -100,9 +100,10 @@ function prepare_problem(
     J = Float64.(Jpattern)
     #M = Diagonal([zeros(nstate); ones(nstate); ones(nflow)])
 
+    Δz = parameters.Δz
     Z = spzeros(Float64, nstate, nstate)
-    I_n = spdiagm(0 => ones(Float64, nstate))
-    Ss = spdiagm(0 => Float64[con.Ss for con in parameters.constitutive])
+    I_n = spdiagm(0 => fill(Δz, nstate))
+    Ss = spdiagm(0 => Float64[con.Ss * Δz for con in parameters.constitutive])
     M = blockdiag([Z Z; Ss I_n], sparse(Float64, I, nflow, nflow))
 
     f = ODEFunction(waterbalance!; mass_matrix = M, jac_prototype = J)
