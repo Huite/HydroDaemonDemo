@@ -9,16 +9,19 @@ struct RichardsParameters{C,T,B} <: AbstractRichards
     topboundary::T
     n::Int
     currentforcing::Vector{Float64}  # P, ET
+    divq::Vector{Float64}  # workspace
 
     function RichardsParameters(; constitutive, Δz, forcing, bottomboundary, topboundary)
+        n = length(constitutive)
         new{eltype(constitutive),typeof(topboundary),typeof(bottomboundary)}(
             constitutive,
             Δz,
             forcing,
             bottomboundary,
             topboundary,
-            length(constitutive),
+            n,
             zeros(Float64, 2),
+            zeros(Float64, n),
         )
     end
 end
@@ -109,8 +112,8 @@ function prepare_problem(
     f = ODEFunction(waterbalance!; mass_matrix = M, jac_prototype = J)
     u0 = zeros(nunknown)
     θ0 = moisture_content.(initial, parameters.constitutive)
-    @views u0[1:nstate] .= initial
-    @views u0[(nstate+1):(nstate*2)] .= θ0
+    @views u0[2:(nstate+1)] .= initial
+    @views u0[(nstate+2):(nstate*2+1)] .= θ0
     params = DiffEqParams(parameters, savedresults)
     problem = ODEProblem(f, u0, tspan, params)
     abstol, reltol =
@@ -121,8 +124,8 @@ end
 function reset!(p::RichardsParametersDAE, u0, initial)
     u0 .= 0.0
     n = p.n
-    ψ0 = @view u0[1:n]
-    θ0 = @view u0[(n+1):(n*2)]
+    ψ0 = @view u0[2:(n+1)]
+    θ0 = @view u0[(n+2):(n*2+1)]
     ψ0 .= initial
     for i = 1:n
         θ0[i] = moisture_content(ψ0[i], p.constitutive[i])

@@ -46,6 +46,7 @@ end
     reltol::Float64 = 1e-6
     maxiters::Int = 100_000
     detect_sparsity::Bool = false
+    analytical_jacobian::Bool = false
     controller::Any = nothing
 end
 
@@ -66,12 +67,10 @@ end
 function save_state!(integrator)
     (; u, p) = integrator
     n = p.parameters.n
-    nflows = 2
     idx = p.results.save_idx
-    primary_state = @view u[1:n]
-    flows = @view u[(end-nflows+1):end]
-    p.results.saved[1:n, idx] .= primary_state
-    p.results.savedflows[1:nflows, idx] .= flows
+    p.results.saved[1:n, idx] .= @view u[2:(n+1)]  # primary state
+    p.results.savedflows[1, idx] = u[1]
+    p.results.savedflows[2, idx] = u[end]
     p.results.save_idx += 1
     return
 end
@@ -85,8 +84,10 @@ function create_tolvectors(nunknown, nflow, abstol::Float64, reltol::Float64)
     vector_abstol = fill(abstol, nunknown)
     vector_reltol = fill(reltol, nunknown)
     # Set flow tolerances to a huge number.
-    @views vector_abstol[(end-nflow+1):end] .= 1e12
-    @views vector_reltol[(end-nflow+1):end] .= 1e12
+    vector_abstol[1] = 1e12
+    vector_abstol[end] = 1e12
+    vector_reltol[1] = 1e12
+    vector_reltol[end] = 1e12
     return vector_abstol, vector_reltol
 end
 
@@ -116,12 +117,24 @@ function prepare_problem(
         Jpattern = prepare_jacobian_sparsity(parameters, nunknown)
         J = Float64.(Jpattern)
     else
-        J = Tridiagonal(zeros(nunknown - 1), zeros(nunknown), zeros(nunknown - 1))
+        if nflow != 2
+            error("nflow must be 2")
+        end
+        n = nstate
+        cols = repeat(2:(n+1), inner = 3)
+        rows = vcat(((i-1):(i+1) for i = 2:(n+1))...)
+        J = sparse(rows, cols, zeros(3n), n + 2, n + 2)
     end
 
-    f = ODEFunction{true}(waterbalance!; jac_prototype = J)
+    if solverconfig.analytical_jacobian
+        jac = dwaterbalance!
+    else
+        jac = nothing
+    end
+
+    f = ODEFunction{true}(waterbalance!; jac = jac, jac_prototype = J)
     u0 = zeros(nunknown)
-    @views u0[1:length(initial)] .= initial
+    @views u0[2:(length(initial)+1)] .= initial
     params = DiffEqParams(parameters, savedresults)
     problem = ODEProblem(f, u0, tspan, params)
 

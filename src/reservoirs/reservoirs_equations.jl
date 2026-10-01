@@ -62,8 +62,8 @@ end
 
 # [jacobian]
 function dwaterbalance!(J, S, parameters::BucketCascade)
-    dFdSᵢ = J.d
-    dFdSᵢ₋₁ = J.dl
+    dFdSᵢ = get_diagonal(J, parameters.n)
+    dFdSᵢ₋₁ = get_lower(J, parameters.n)
     # dFdSᵢ₊₁ = J.du is always zero.
     dq_upstream = 0.0
     for (i, bucket) in enumerate(parameters.buckets)
@@ -78,7 +78,7 @@ function dwaterbalance!(J, S, parameters::BucketCascade)
         dFdSᵢ[i] = -dq
         dq_upstream = dq
     end
-    return
+    return 0.0, dq_upstream
 end
 
 # [jacobian]
@@ -93,15 +93,26 @@ end
 # [diffeq]
 function waterbalance!(du, u, p::DiffEqParams{BucketCascade}, t)
     n = p.parameters.n
-    dS = @views du[1:n]
-    S = @views u[1:n]
+    dS = @views du[2:(n+1)]
+    S = @views u[2:(n+1)]
     q1, q2 = waterbalance!(dS, S, p.parameters)
-    du[end-1] = q1
+    du[1] = q1
     du[end] = q2
+    return
+end
+
+function dwaterbalance!(J, u, p::DiffEqParams{BucketCascade}, t)
+    n = p.parameters.n
+    S = @views u[2:(n+1)]
+    dq1, dq2 = dwaterbalance!(J, S, p.parameters)
+    J.nzval[1] = dq1
+    J.nzval[end] = dq2
     return
 end
 
 # [diffeq]
 function isoutofdomain(u, p::DiffEqParams{BucketCascade}, t)::Bool
-    return any(value < 0 for value in u)
+    n = p.parameters.n
+    S = @views u[2:(n+1)]
+    return any(value < 0 for value in S)
 end

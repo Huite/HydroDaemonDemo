@@ -58,11 +58,12 @@ function dwaterbalance!(J, S, fuse::Fuse070Parameters)
     dqb = fuse.v
 
     # Fill terms in the Jacobian
-    J[1, 1] = -de1 - dq12 - dqsx - dqufof
-    J[1, 2] = 0.0
-    J[2, 1] = dq12
-    J[2, 2] = -dqb
-    return
+    diagonal = get_diagonal(J, 2)
+    lower = get_lower(J, 2)
+    diagonal[1] = -de1 - dq12 - dqsx - dqufof   # [1, 1]
+    lower[1] = dq12                             # [2, 1]
+    diagonal[2] = -dqb                          # [2, 2]
+    return dq12, dqsx + dqufof + dqb
 end
 
 # [explicit]

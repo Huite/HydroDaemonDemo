@@ -163,16 +163,24 @@ end
 # Wrapped for DifferentialEquations.jl
 # [diffeq]
 function waterbalance!(du, u, p::DiffEqParams{F}, t) where {F<:FuseParameters}
-    dS = @view du[1:2]
-    S = @view u[1:2]
+    dS = @view du[2:3]
+    S = @view u[2:3]
     q1, q2 = waterbalance!(dS, S, p.parameters)
     du[end-1] = q1
     du[end] = q2
     return
 end
 
+function dwaterbalance!(J, u, p::DiffEqParams{F}, t) where {F<:FuseParameters}
+    S = @views u[2:3]
+    dq1, dq2 = dwaterbalance!(J, S, p.parameters, t)
+    J.nzval[1] = dq1
+    J.nzval[end] = dq2
+    return
+end
+
 # [diffeq]
 function isoutofdomain(u, p::DiffEqParams{F}, t)::Bool where {F<:FuseParameters}
-    S = @view u[1:2]
+    S = @view u[2:3]
     return any(value < 0 for value in S)
 end

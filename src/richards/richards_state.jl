@@ -2,7 +2,7 @@ struct RichardsState <: State
     ψ::Vector{Float64}
     ψ_old::Vector{Float64}
     θ_old::Vector{Float64}
-    ∇q::Vector{Float64}
+    divq::Vector{Float64}
     flows::Vector{Float64}
 end
 

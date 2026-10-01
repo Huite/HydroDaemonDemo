@@ -116,9 +116,9 @@ end
 # Full column
 
 # [core]
-function waterbalance!(∇q, ψ, parameters::AbstractRichards)
+function waterbalance!(divq, ψ, parameters::AbstractRichards)
     (; constitutive, Δz, bottomboundary, topboundary, n) = parameters
-    @. ∇q = 0.0
+    @. divq = 0.0
     Δz⁻¹ = 1.0 / Δz
 
     # Internodal flows
@@ -129,29 +129,29 @@ function waterbalance!(∇q, ψ, parameters::AbstractRichards)
         k_inter = 0.5 * (k_lower + k_upper)
         Δψ = ψ[upper] - ψ[i]
         q = k_inter * (Δψ * Δz⁻¹ + 1)
-        ∇q[i] += q
-        ∇q[upper] -= q
+        divq[i] += q
+        divq[upper] -= q
         k_lower = k_upper
     end
 
     # Boundary conditions
     qbot = bottomflux(ψ, parameters, bottomboundary)
     qtop = topflux(ψ, parameters, topboundary) + forcingflux(ψ, parameters)
-    ∇q[1] += qbot
-    ∇q[end] += qtop
+    divq[1] += qbot
+    divq[end] += qtop
     return qbot, qtop
 end
 
 # For hand-coded Newton formulation.
 # [implicit]
 function residual!(rhs, state::RichardsState, parameters::RichardsParameters, Δt)
-    waterbalance!(state.∇q, state.ψ, parameters)
+    waterbalance!(state.divq, state.ψ, parameters)
     Δz = parameters.Δz
     for i = 1:parameters.n
         θ = moisture_content(state.ψ[i], parameters.constitutive[i])
         Ss = parameters.constitutive[i].Ss
         storage = θ - state.θ_old[i] + Ss * (state.ψ[i] - state.ψ_old[i])
-        rhs[i] = -(state.∇q[i] - Δz * storage / Δt)
+        rhs[i] = -(state.divq[i] - Δz * storage / Δt)
     end
     return
 end
@@ -160,9 +160,9 @@ end
 function dwaterbalance!(J, ψ, parameters::RichardsParameters)
     (; constitutive, Δz, bottomboundary, topboundary, n) = parameters
 
-    dFᵢdψᵢ = J.d  # derivatives of F₁, ... Fₙ with respect to ψ₁, ... ψₙ
-    dFᵢ₊₁dψᵢ = J.dl  # derivatives of F₂, ... Fₙ with respect to ψ₁, ... ψₙ₋₁
-    dFᵢ₋₁dψᵢ = J.du  # derivatives of F₁, ... Fₙ₋₁ with respect to ψ₂, ... ψₙ
+    dFᵢdψᵢ = get_diagonal(J, n) # derivatives of F₁, ... Fₙ with respect to ψ₁, ... ψₙ
+    dFᵢ₊₁dψᵢ = get_lower(J, n) # derivatives of F₂, ... Fₙ with respect to ψ₁, ... ψₙ₋₁
+    dFᵢ₋₁dψᵢ = get_upper(J, n) # derivatives of F₁, ... Fₙ₋₁ with respect to ψ₂, ... ψₙ
     Δz⁻¹ = 1.0 / Δz
 
     # First compute the off-diagonal terms -- relating to the internodal flows.
@@ -185,10 +185,12 @@ function dwaterbalance!(J, ψ, parameters::RichardsParameters)
     @views dFᵢdψᵢ[1:(end-1)] .-= dFᵢ₊₁dψᵢ
     @views dFᵢdψᵢ[2:end] .-= dFᵢ₋₁dψᵢ
 
-    J.d[1] += bottomboundary_jacobian(ψ, parameters, bottomboundary)
-    J.d[end] += topboundary_jacobian(ψ, parameters, topboundary)
-    J.d[end] += forcing_jacobian(ψ, parameters)
-    return
+    dqbot = bottomboundary_jacobian(ψ, parameters, bottomboundary)
+    dqtop =
+        topboundary_jacobian(ψ, parameters, topboundary) + forcing_jacobian(ψ, parameters)
+    dFᵢdψᵢ[1] += dqbot
+    dFᵢdψᵢ[end] += dqtop
+    return dqtop, dqbot
 end
 
 # [jacobian]
@@ -257,8 +259,9 @@ end
 
 # [diffeq]
 function waterbalance!(du, u, p::DiffEqParams{<:RichardsParameters}, t)
-    @views dψ = du[1:(end-2)]
-    @views ψ = u[1:(end-2)]
+    n = p.parameters.n
+    @views dψ = du[2:(n+1)]
+    @views ψ = u[2:(n+1)]
     parameters = p.parameters
     qbot, qtop = waterbalance!(dψ, ψ, parameters)
     Δz = parameters.Δz
@@ -267,10 +270,45 @@ function waterbalance!(du, u, p::DiffEqParams{<:RichardsParameters}, t)
         Ss = parameters.constitutive[i].Ss
         dψ[i] *= 1.0 / (Δz * (C + Ss))
     end
-    du[end-1] = qbot
+    du[1] = qbot
     du[end] = qtop
     return
 end
+
+
+function dwaterbalance!(J, u, p::DiffEqParams{<:RichardsParameters}, t)
+    parameters = p.parameters
+    (; n, Δz, constitutive, divq) = parameters
+
+    ψ = @view u[2:(n+1)]
+
+    # Jacobian of the unscaled water balance F(ψ).
+    dqbot, dqtop = dwaterbalance!(J, ψ, parameters)
+    # F(ψ) itself, needed because C depends on ψ.
+    waterbalance!(divq, ψ, parameters)
+
+    diagonal = get_diagonal(J, n)
+    lower = get_lower(J, n)
+    upper = get_upper(J, n)
+    for i = 1:n
+        C = specific_moisture_capacity(ψ[i], constitutive[i])
+        dC = dspecific_moisture_capacity(ψ[i], constitutive[i])
+        Ss = constitutive[i].Ss
+        M = 1.0 / (Δz * (C + Ss))
+
+        diagonal[i] = diagonal[i] * M - divq[i] * dC / (Δz * (C + Ss)^2)
+        if i < n
+            upper[i] *= M
+        end
+        if i > 1
+            lower[i-1] *= M
+        end
+    end
+    J.nzval[end-1] = dqbot
+    J.nzval[end] = dqtop
+    return
+end
+
 
 # [diffeq]
 function isoutofdomain(u, p::DiffEqParams{<:AbstractRichards}, t)
@@ -279,20 +317,19 @@ end
 
 function waterbalance_dae!(du, u, parameters::RichardsParametersDAE)
     n = parameters.n
-    dψ = @view du[1:n]  # Acts as ∇q first
-    ψ = @view u[1:n]
-    nflow = 2
-    dθ = @view du[(n+1):(end-nflow)]
-    θ = @view u[(n+1):(end-nflow)]
+    dψ = @view du[2:(n+1)]
+    ψ = @view u[2:(n+1)]
+    dθ = @view du[(n+1):(end-1)]
+    θ = @view u[(n+1):(end-1)]
 
-    qbot, qtop = waterbalance!(dψ, ψ, parameters)
-    ∇q = dψ
+    divq = parameters.divq
+    qbot, qtop = waterbalance!(divq, ψ, parameters)
     for i = 1:parameters.n
-        dθ[i] = ∇q[i]
+        dθ[i] = divq[i]
         # Algebraic constraint
         dψ[i] = θ[i] - moisture_content(ψ[i], parameters.constitutive[i])
     end
-    du[end-1] = qbot
+    du[1] = qbot
     du[end] = qtop
     return
 end

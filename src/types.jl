@@ -55,3 +55,12 @@ end
 function rewind!(state::ImplicitState)
     error("rewind! not implemented for $(typeof(state))")
 end
+
+get_diagonal(J::Tridiagonal, n) = J.d
+get_lower(J::Tridiagonal, n) = J.dl
+get_upper(J::Tridiagonal, n) = J.du
+
+# This assumes a flow at the first spot (and at the last)
+get_diagonal(J::SparseMatrixCSC, n) = @view J.nzval[2:3:(3n-1)]
+get_lower(J::SparseMatrixCSC, n) = @view J.nzval[3:3:(3n-3)]
+get_upper(J::SparseMatrixCSC, n) = @view J.nzval[4:3:(3n-2)]
