@@ -108,9 +108,7 @@ end
 
 
 solver_presets = (
-    HDD.ImplicitNewtonSolverPreset(
-        timestepper = HDD.AdaptiveTimeStepper(Δt0 = 0.01),
-    ),
+    HDD.ImplicitNewtonSolverPreset(timestepper = HDD.AdaptiveTimeStepper(Δt0 = 0.01)),
     HDD.ImplicitNewtonSolverPreset(
         timestepper = HDD.AdaptiveTimeStepper(Δt0 = 0.0001, Δtmax = 0.0001),
     ),

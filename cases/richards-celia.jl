@@ -60,28 +60,20 @@ end
 
 celia = create_celia()
 solver_presets = (
-    HDD.ImplicitNewtonSolverPreset(
-        timestepper = HDD.FixedTimeStepper(0.1)
-    ),
-    HDD.ImplicitNewtonSolverPreset(
-        timestepper = HDD.FixedTimeStepper(1.0)
-    ),
-    HDD.ImplicitNewtonSolverPreset(
-        timestepper = HDD.FixedTimeStepper(10.0)
-    ),
-    HDD.ImplicitNewtonSolverPreset(
-        timestepper = HDD.FixedTimeStepper(30.0)
-    ),
-    HDD.ImplicitNewtonSolverPreset(
-        timestepper = HDD.FixedTimeStepper(120.0)
-    ),
+    HDD.ImplicitNewtonSolverPreset(timestepper = HDD.FixedTimeStepper(0.1)),
+    HDD.ImplicitNewtonSolverPreset(timestepper = HDD.FixedTimeStepper(1.0)),
+    HDD.ImplicitNewtonSolverPreset(timestepper = HDD.FixedTimeStepper(10.0)),
+    HDD.ImplicitNewtonSolverPreset(timestepper = HDD.FixedTimeStepper(30.0)),
+    HDD.ImplicitNewtonSolverPreset(timestepper = HDD.FixedTimeStepper(120.0)),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler())),
     HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler())),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
     HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
-    HDD.DiffEqSolverPreset(HDD.SolverConfig(
-        alg = CVODE_BDF(linear_solver = :Band, jac_upper = 1, jac_lower = 1),
-    )),
+    HDD.DiffEqSolverPreset(
+        HDD.SolverConfig(
+            alg = CVODE_BDF(linear_solver = :Band, jac_upper = 1, jac_lower = 1),
+        ),
+    ),
     HDD.DiffEqSolverPreset(
         HDD.SolverConfig(
             alg = QNDF(nlsolve = NLNewton(κ = 1e-7)),

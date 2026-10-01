@@ -66,9 +66,7 @@ end
 forcingdf, forcing = read_forcing("data/infiltration.dat")
 infiltration = create_infiltration(forcing)
 solver_presets = (
-    HDD.ImplicitNewtonSolverPreset(
-        timestepper = HDD.AdaptiveTimeStepper(Δt0 = 1.0),
-    ),
+    HDD.ImplicitNewtonSolverPreset(timestepper = HDD.AdaptiveTimeStepper(Δt0 = 1.0)),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
     HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
     HDD.DiffEqSolverPreset(
