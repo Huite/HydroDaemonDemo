@@ -64,6 +64,24 @@ function dconductivity(ψ, mvg::MualemVanGenuchten)
     return ifelse(ψ > 0, 0.0, ks * (term1 * (1 - inner^m)^2 + 2 * Se^l * outer * outer_der))
 end
 
+"""dC/dψ for the Mualem–van Genuchten relationship."""
+function dspecific_moisture_capacity(ψ, mvg::MualemVanGenuchten)
+    (; a, n, m, θs, θr) = mvg
+    if ψ > 0
+        return 0.0
+    end
+
+    absψ = abs(ψ)
+    base = 1 + (a * absψ)^n
+    A = m * n * a^n
+    d2Se =
+        A * (
+            (m + 1) * n * a^n * absψ^(2n - 2) * base^(-m - 2) -
+            (n - 1) * absψ^(n - 2) * base^(-m - 1)
+        )
+    return d2Se * (θs - θr)
+end
+
 # Modified Mualem–van Genuchten relations (Vogel 2000, Ippisch 2006)
 
 # [core]
@@ -75,7 +93,7 @@ struct ModifiedMualemVanGenuchten <: ConstitutiveRelationships
     ks::Float64     # saturated hydraulic conductivity [L/T]
     θs::Float64     # saturated water content
     θr::Float64     # residual water content
-    ψe::Float64     # air‑entry suction (> 0)  [L]
+    ψe::Float64     # air‑entry pressure head (< 0)  [L]
     Sc::Float64     # cut‑off saturation factor
     Ss::Float64
     function ModifiedMualemVanGenuchten(; a, n, m = nothing, l, ks, θs, θr, ψe, Ss)
@@ -147,4 +165,22 @@ function dconductivity(ψ, mvg::ModifiedMualemVanGenuchten)
     dkr_dSe = l * Se^(l - 1) * (F / Fc)^2 + 2 * Se^l * (F / Fc) * (dF_dSe / Fc)
     derivative = ks * dkr_dSe * dSe
     return ifelse(ψ > ψe, 0.0, derivative)
+end
+
+"""dC/dψ for the modified Mualem–van Genuchten relationship."""
+function dspecific_moisture_capacity(ψ, mvg::ModifiedMualemVanGenuchten)
+    (; a, n, m, Sc, ψe, θs, θr) = mvg
+    if ψ > ψe
+        return 0.0
+    end
+
+    absψ = abs(ψ)
+    base = 1 + (a * absψ)^n
+    A = m * n * a^n / Sc
+    d2Se =
+        A * (
+            (m + 1) * n * a^n * absψ^(2n - 2) * base^(-m - 2) -
+            (n - 1) * absψ^(n - 2) * base^(-m - 1)
+        )
+    return d2Se * (θs - θr)
 end

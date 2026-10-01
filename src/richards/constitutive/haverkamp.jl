@@ -30,10 +30,10 @@ end
 
 function dspecific_moisture_capacity(ψ, h::Haverkamp)
     (; a, B, θs, θr) = h
-    A = a * (θs - θr)
+
     absψ = abs(ψ)
-    num1 = (B - 1) * absψ^(B - 2) * (a + absψ^B)^2
-    num2 = 2 * B * ψ * absψ^(2B - 3) * (a + absψ^B)
-    denom = (a + absψ^B)^4
-    return -A * B * (num1 - num2) / denom
+    denom = a + absψ^B
+    factor = a * B * (θs - θr) * sign(ψ)
+
+    return factor * ((B - 1) * absψ^(B - 2) / denom^2 - 2 * B * absψ^(2B - 2) / denom^3)
 end
