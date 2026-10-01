@@ -46,12 +46,10 @@ include("reservoirs/reservoirs_equations.jl")
 # FUSE conceptual models
 include("fuse/fuse.jl")
 include("fuse/fuse070_equations.jl")
-include("fuse/fuse550_equations.jl")
 
 # Richards 1D column
 include("richards/constitutive/haverkamp.jl")
 include("richards/constitutive/mualemvangenuchten.jl")
-include("richards/constitutive/spline.jl")
 include("richards/richards_parameters.jl")
 include("richards/richards_state.jl")
 include("richards/richards_equations.jl")
