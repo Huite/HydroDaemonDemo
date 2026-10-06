@@ -184,12 +184,25 @@ struct DiffEqSolverPreset
 end
 
 function name(preset::DiffEqSolverPreset)
-    algname = string(typeof(preset.solverconfig.alg).name.name)
+    alg = preset.solverconfig.alg
+    algname = string(typeof(alg).name.name)
+    if preset.solverconfig.analytical_jacobian
+        analytical = "(analytical)"
+    else
+        analytical = ""
+    end
+
+    if hasproperty(alg, :autodiff) && occursin("FiniteDiff", string(alg.autodiff))
+        finite_diff = "(FD)"
+    else
+        finite_diff = ""
+    end
+
     tolerance = preset.solverconfig.abstol
     if isapprox(tolerance, 1e-6)
-        return "DiffEq-$(algname)"
+        return "DiffEq-$(algname)$(analytical)$(finite_diff)"
     else
-        return "DiffEq-$(algname)-tol=$(tolerance)"
+        return "DiffEq-$(algname)$(analytical)$(finite_diff)-tol=$(tolerance)"
     end
 end
 

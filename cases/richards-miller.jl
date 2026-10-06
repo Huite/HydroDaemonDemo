@@ -114,6 +114,12 @@ solver_presets = (
     ),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(), maxiters = 200_000)),
     HDD.DiffEqSolverPreset(
+        HDD.SolverConfig(alg = QNDF(autodiff = false), maxiters = 200_000),
+    ),
+    HDD.DiffEqSolverPreset(
+        HDD.SolverConfig(alg = QNDF(), maxiters = 200_000, analytical_jacobian = true),
+    ),
+    HDD.DiffEqSolverPreset(
         HDD.SolverConfig(
             alg = CVODE_BDF(linear_solver = :Band, jac_upper = 1, jac_lower = 1),
         ),
@@ -138,12 +144,6 @@ cases = (
     loam = create_millerloam(),
     clayloam = create_millerclayloam(),
 )
-
-# %%
-#
-#model = HDD.diffeq_model_dae(cases[1], solver_presets[1].solverconfig, cases[1].saveat)
-#HDD.run!(model)
-#
 # %%
 
 df, results = run(cases, solver_presets)

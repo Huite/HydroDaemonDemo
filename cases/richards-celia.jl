@@ -66,8 +66,14 @@ solver_presets = (
     HDD.ImplicitNewtonSolverPreset(timestepper = HDD.FixedTimeStepper(30.0)),
     HDD.ImplicitNewtonSolverPreset(timestepper = HDD.FixedTimeStepper(120.0)),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler())),
+    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler(autodiff = false))),
+    HDD.DiffEqSolverPreset(
+        HDD.SolverConfig(alg = ImplicitEuler(), analytical_jacobian = true),
+    ),
     HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = ImplicitEuler())),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
+    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(autodiff = false))),
+    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(), analytical_jacobian = true)),
     HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
     HDD.DiffEqSolverPreset(
         HDD.SolverConfig(

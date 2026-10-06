@@ -68,6 +68,8 @@ infiltration = create_infiltration(forcing)
 solver_presets = (
     HDD.ImplicitNewtonSolverPreset(timestepper = HDD.AdaptiveTimeStepper(Δt0 = 1.0)),
     HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
+    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(autodiff = false))),
+    HDD.DiffEqSolverPreset(HDD.SolverConfig(alg = QNDF(), analytical_jacobian = true)),
     HDD.DAEDiffEqSolverPreset(HDD.SolverConfig(alg = QNDF())),
     HDD.DiffEqSolverPreset(
         HDD.SolverConfig(
