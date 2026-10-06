@@ -36,7 +36,8 @@ end
 
 function reset!(p::Parameters, u0, initial)
     u0 .= 0.0
-    @views u0[1:length(initial)] .= initial
+    n = length(initial)
+    @views u0[2:(n+1)] .= initial
     return
 end
 

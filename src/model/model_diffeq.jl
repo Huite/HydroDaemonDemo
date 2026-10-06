@@ -92,14 +92,25 @@ function create_tolvectors(nunknown, nflow, abstol::Float64, reltol::Float64)
 end
 
 # [diffeq]
-function prepare_jacobian_sparsity(parameters, nunknown)
-    return jacobian_sparsity(
-        (du, u) -> waterbalance!(du, u, t, parameters),
+function detect_jacobian_sparsity(parameters, nunknown)
+    Jpattern = jacobian_sparsity(
+        (du, u) -> waterbalance!(du, u, parameters, 0.0),
         zeros(nunknown),
         zeros(nunknown),
-        0.0,
         TracerSparsityDetector(),
     )
+    return Float64.(Jpattern)
+end
+
+function apriori_jacobian_sparsity(nstate, nflow)
+    # To test without automatic sparsity tracking.
+    if nflow != 2
+        error("nflow must be 2")
+    end
+    n = nstate
+    cols = repeat(2:(n+1), inner = 3)
+    rows = vcat(((i-1):(i+1) for i = 2:(n+1))...)
+    return sparse(rows, cols, zeros(3n), n + 2, n + 2)
 end
 
 # [diffeq]
@@ -112,32 +123,16 @@ function prepare_problem(
     initial,
     tspan,
 )
+    params = DiffEqParams(parameters, savedresults)
     nunknown = nstate + nflow
-    if solverconfig.detect_sparsity
-        Jpattern = prepare_jacobian_sparsity(parameters, nunknown)
-        J = Float64.(Jpattern)
-    else
-        if nflow != 2
-            error("nflow must be 2")
-        end
-        n = nstate
-        cols = repeat(2:(n+1), inner = 3)
-        rows = vcat(((i-1):(i+1) for i = 2:(n+1))...)
-        J = sparse(rows, cols, zeros(3n), n + 2, n + 2)
-    end
-
-    if solverconfig.analytical_jacobian
-        jac = dwaterbalance!
-    else
-        jac = nothing
-    end
-
+    J =
+        solverconfig.detect_sparsity ? detect_jacobian_sparsity(params, nunknown) :
+        apriori_jacobian_sparsity(nstate, nflow)
+    jac = solverconfig.analytical_jacobian ? dwaterbalance! : nothing
     f = ODEFunction{true}(waterbalance!; jac = jac, jac_prototype = J)
     u0 = zeros(nunknown)
     @views u0[2:(length(initial)+1)] .= initial
-    params = DiffEqParams(parameters, savedresults)
     problem = ODEProblem(f, u0, tspan, params)
-
     abstol, reltol =
         create_tolvectors(nunknown, nflow, solverconfig.abstol, solverconfig.reltol)
     return problem, abstol, reltol
@@ -180,8 +175,8 @@ function DiffEqHydrologicalModel(
 
     # CVODE_BDF requires scalar tolerances.
     if solverconfig.alg isa CVODE_BDF
-        abstol = abstol[1]
-        reltol = reltol[1]
+        abstol = solverconfig.abstol
+        reltol = solverconfig.reltol
     end
 
     integrator = init(

@@ -190,7 +190,7 @@ function dwaterbalance!(J, ψ, parameters::RichardsParameters)
         topboundary_jacobian(ψ, parameters, topboundary) + forcing_jacobian(ψ, parameters)
     dFᵢdψᵢ[1] += dqbot
     dFᵢdψᵢ[end] += dqtop
-    return dqtop, dqbot
+    return dqbot, dqtop
 end
 
 # [jacobian]
@@ -259,29 +259,26 @@ end
 
 # [diffeq]
 function waterbalance!(du, u, p::DiffEqParams{<:RichardsParameters}, t)
-    n = p.parameters.n
+    parameters = p.parameters
+    n = parameters.n
     @views dψ = du[2:(n+1)]
     @views ψ = u[2:(n+1)]
-    parameters = p.parameters
     qbot, qtop = waterbalance!(dψ, ψ, parameters)
-    Δz = parameters.Δz
-    for i = 1:parameters.n
+    for i = 1:n
         C = specific_moisture_capacity(ψ[i], parameters.constitutive[i])
         Ss = parameters.constitutive[i].Ss
-        dψ[i] *= 1.0 / (Δz * (C + Ss))
+        dψ[i] *= 1.0 / (parameters.Δz * (C + Ss))
     end
     du[1] = qbot
     du[end] = qtop
     return
 end
 
-
 function dwaterbalance!(J, u, p::DiffEqParams{<:RichardsParameters}, t)
     parameters = p.parameters
     (; n, Δz, constitutive, divq) = parameters
 
     ψ = @view u[2:(n+1)]
-
     # Jacobian of the unscaled water balance F(ψ).
     dqbot, dqtop = dwaterbalance!(J, ψ, parameters)
     # F(ψ) itself, needed because C depends on ψ.
@@ -304,11 +301,10 @@ function dwaterbalance!(J, u, p::DiffEqParams{<:RichardsParameters}, t)
             lower[i-1] *= M
         end
     end
-    J.nzval[end-1] = dqbot
+    J.nzval[1] = dqbot
     J.nzval[end] = dqtop
     return
 end
-
 
 # [diffeq]
 function isoutofdomain(u, p::DiffEqParams{<:AbstractRichards}, t)
@@ -317,15 +313,14 @@ end
 
 function waterbalance_dae!(du, u, parameters::RichardsParametersDAE)
     n = parameters.n
-    dψ = @view du[2:(n+1)]
+    dψ = @view du[2:(n+1)]   # Acts as divq first, must be AD-cacheable!
     ψ = @view u[2:(n+1)]
-    dθ = @view du[(n+1):(end-1)]
-    θ = @view u[(n+1):(end-1)]
+    dθ = @view du[(n+2):(end-1)]
+    θ = @view u[(n+2):(end-1)]
 
-    divq = parameters.divq
+    divq = dθ
     qbot, qtop = waterbalance!(divq, ψ, parameters)
     for i = 1:parameters.n
-        dθ[i] = divq[i]
         # Algebraic constraint
         dψ[i] = θ[i] - moisture_content(ψ[i], parameters.constitutive[i])
     end

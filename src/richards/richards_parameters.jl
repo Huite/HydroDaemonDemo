@@ -9,7 +9,7 @@ struct RichardsParameters{C,T,B} <: AbstractRichards
     topboundary::T
     n::Int
     currentforcing::Vector{Float64}  # P, ET
-    divq::Vector{Float64}  # workspace
+    divq::Vector{Float64}  # workspace, only for analytical jacobian
 
     function RichardsParameters(; constitutive, Δz, forcing, bottomboundary, topboundary)
         n = length(constitutive)
@@ -93,28 +93,23 @@ function prepare_problem(
     initial,
     tspan,
 )
+    # Function is special-cased as it introduces a mass matrix.
+    params = DiffEqParams(parameters, savedresults)
     nunknown = nstate * 2 + nflow
-    Jpattern = jacobian_sparsity(
-        (du, u) -> waterbalance_dae!(du, u, parameters),
-        zeros(nunknown),
-        zeros(nunknown),
-        TracerSparsityDetector(),
-    )
-    J = Float64.(Jpattern)
-    #M = Diagonal([zeros(nstate); ones(nstate); ones(nflow)])
+    J = prepare_jacobian_sparsity(params, nunknown)
 
     Δz = parameters.Δz
     Z = spzeros(Float64, nstate, nstate)
     I_n = spdiagm(0 => fill(Δz, nstate))
     Ss = spdiagm(0 => Float64[con.Ss * Δz for con in parameters.constitutive])
-    M = blockdiag([Z Z; Ss I_n], sparse(Float64, I, nflow, nflow))
+    I_1 = sparse(Float64, I, 1, 1)
+    M = blockdiag(I_1, [Z Z; Ss I_n], I_1)
 
     f = ODEFunction(waterbalance!; mass_matrix = M, jac_prototype = J)
     u0 = zeros(nunknown)
     θ0 = moisture_content.(initial, parameters.constitutive)
     @views u0[2:(nstate+1)] .= initial
-    @views u0[(nstate+2):(nstate*2+1)] .= θ0
-    params = DiffEqParams(parameters, savedresults)
+    @views u0[(nstate+2):(end-1)] .= θ0
     problem = ODEProblem(f, u0, tspan, params)
     abstol, reltol =
         create_tolvectors(nunknown, nflow, solverconfig.abstol, solverconfig.reltol)

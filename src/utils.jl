@@ -3,6 +3,13 @@ function safepow(base, exponent)
     return (base < 0 || (exponent < 0 && base < tol)) ? 0.0 : base^exponent
 end
 
+# SparseConnectivityTracer performs structural tracing without primal values.
+# For sparsity detection, retain the possible dependency on `base` and bypass
+# the numerical guards in safepow.
+function safepow(base::AbstractTracer, exponent::Float64)
+    return base^exponent
+end
+
 function dmin(a, b)
     return a <= b ? 1.0 : 0.0
 end
