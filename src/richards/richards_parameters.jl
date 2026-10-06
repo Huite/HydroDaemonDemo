@@ -96,7 +96,7 @@ function prepare_problem(
     # Function is special-cased as it introduces a mass matrix.
     params = DiffEqParams(parameters, savedresults)
     nunknown = nstate * 2 + nflow
-    J = prepare_jacobian_sparsity(params, nunknown)
+    J = detect_jacobian_sparsity(params, nunknown)
 
     Δz = parameters.Δz
     Z = spzeros(Float64, nstate, nstate)
